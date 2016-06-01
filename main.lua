@@ -27,6 +27,8 @@ function gameState:load()
 	self.lineCount = 0
 	self.score = 0
 	self.level = 1
+	self.decrementTimer = 1.0
+	self.fall = false -- when true, it moves the tetromino to the bottom
 
 	self.background = love.graphics.newImage("level1_background.png")
 end
@@ -36,12 +38,14 @@ function gameState:generateTetromino(idx)
 		idx = idx,
 		orientation = 0,
 		x = 3,
-		y = 0
+		y = 0,
+		display_x = 24, -- displayed position
+		display_y = 0
 	}
 end
 
 -- return true if tetromino collide with anything in the grid
-function gameState:collide(tetromino, tx, ty)
+function gameState:collideWithGrid(tetromino, tx, ty)
 	for j = 0, 3 do
 		for i = 0, 3 do
 			local x = tx + i
@@ -65,19 +69,19 @@ function gameState:collide(tetromino, tx, ty)
 end
 
 function gameState:canMoveLeft()
-	return not self:collide(tetrominos[self.tetromino.idx][self.tetromino.orientation], self.tetromino.x - 1, self.tetromino.y)
+	return not self:collideWithGrid(tetrominos[self.tetromino.idx][self.tetromino.orientation], self.tetromino.x - 1, self.tetromino.y)
 end
 
 function gameState:canMoveRight()
-	return not self:collide(tetrominos[self.tetromino.idx][self.tetromino.orientation], self.tetromino.x + 1, self.tetromino.y)
+	return not self:collideWithGrid(tetrominos[self.tetromino.idx][self.tetromino.orientation], self.tetromino.x + 1, self.tetromino.y)
 end
 
 function gameState:canMoveDown()
-	return not self:collide(tetrominos[self.tetromino.idx][self.tetromino.orientation], self.tetromino.x, self.tetromino.y + 1)
+	return not self:collideWithGrid(tetrominos[self.tetromino.idx][self.tetromino.orientation], self.tetromino.x, self.tetromino.y + 1)
 end
 
 function gameState:canRotateTo(orient) 
-	return not self:collide(tetrominos[self.tetromino.idx][orient], self.tetromino.x, self.tetromino.y)
+	return not self:collideWithGrid(tetrominos[self.tetromino.idx][orient], self.tetromino.x, self.tetromino.y)
 end
 
 -- return the list of fill lines
@@ -135,6 +139,27 @@ function gameState:removeLine(idx)
 	end
 end
 
+-- look for completed lines, remove them and update score
+function gameState:updateGrid() 
+	-- any line to remove?
+	local lines = self:fullLines()
+	local score = 10
+	if #lines > 0 then
+		for k, idx in ipairs(lines) do
+			print(idx)
+			self:removeLine(idx)
+		end
+
+		-- incremente score
+		self.score = self.score + score
+
+		-- extra bonus for multiple lines
+		score = score + 5
+	end
+
+	self.lineCount = self.lineCount + #lines
+end
+
 function gameState:moveTetrominoDown()
 	local bottom = false
 	if self:canMoveDown() then
@@ -143,31 +168,6 @@ function gameState:moveTetrominoDown()
 
 		bottom = false
 	else
-		-- copy tetromino to grid
-		self:copyTetromino()
-
-		-- any line to remove?
-		local lines = self:fullLines()
-		local score = 10
-		if #lines > 0 then
-			for k, idx in ipairs(lines) do
-				print(idx)
-				self:removeLine(idx)
-			end
-
-			-- incremente score
-			self.score = self.score + score
-
-			-- extra bonus for multiple lines
-			score = score + 5
-		end
-
-		self.lineCount = self.lineCount + #lines
-
-		-- generate a new tetromino
-		self:generateTetromino(self.nextTetromino)
-		self.nextTetromino = love.math.random(7) - 1
-
 		bottom  = true
 	end
 
@@ -175,14 +175,46 @@ function gameState:moveTetrominoDown()
 end
 
 function gameState:update(dt)
-	-- move the tetromino down
-	self.timer = self.timer + dt
+	local bottom = false
+	if self.fall then
+		local speed = 2048
+		self.tetromino.display_y = self.tetromino.display_y + math.max(-speed * dt, math.min(speed * dt, self.fall * 8 - self.tetromino.display_y))
+		self.tetromino.y = math.floor(self.tetromino.display_y / 8)
 
-	if self.timer > 1.0 then
-		self:moveTetrominoDown()
+		bottom = not self:canMoveDown()
+	else
+		-- move the tetromino down
+		self.timer = self.timer + dt
+
+		if self.timer > self.decrementTimer then
+			bottom = self:moveTetrominoDown()
+
+			-- reset timer
+			self.timer = 0
+		end
+
+		-- updated tetromino displayed position
+		local speed = 256
+		self.tetromino.display_x = self.tetromino.display_x + math.max(-speed * dt, math.min(speed * dt, (self.tetromino.x * 8) - self.tetromino.display_x))
+		self.tetromino.display_y = self.tetromino.display_y + math.max(-speed * dt, math.min(speed * dt, (self.tetromino.y * 8) - self.tetromino.display_y))
+	end
+
+	if bottom then
+		-- copy tetromino to grid
+		self:copyTetromino()
+
+		-- update the new grid
+		self:updateGrid()
+
+		-- generate a new tetromino
+		self:generateTetromino(self.nextTetromino)
+		self.nextTetromino = love.math.random(7) - 1
 
 		-- reset timer
 		self.timer = 0
+
+		-- reset fall state
+		self.fall = false
 	end
 end
 
@@ -224,7 +256,7 @@ function gameState:draw()
 	end	
 
 	-- draw tetromino
-	self:drawTetromino(self.tetromino.idx, self.tetromino.orientation, self.tetromino.x * 8, self.tetromino.y * 8)
+	self:drawTetromino(self.tetromino.idx, self.tetromino.orientation, self.tetromino.display_x, self.tetromino.display_y)
 
 	love.graphics.pop()
 
@@ -239,25 +271,32 @@ function gameState:draw()
 end
 
 function gameState:keypressed(key, scancode, isrepeat)
-	if key == "kp5" then
+	if key == "kp5" and not self.fall then
 		local newOrient = (self.tetromino.orientation + 1) % 4
 		if self:canRotateTo(newOrient) then
 			self.tetromino.orientation = newOrient
 		end
 	end
 
-	if key == "kp4" and self:canMoveLeft() then
+	if key == "kp4" and self:canMoveLeft() and not self.fall then
 		self.tetromino.x = self.tetromino.x - 1
 	end
 
-	if key == "kp6" and self:canMoveRight() then
+	if key == "kp6" and self:canMoveRight() and not self.fall then
 		self.tetromino.x = self.tetromino.x + 1
 	end
 
 	if key == "kp2" then
-		-- move down as much as possible
-		while not self:moveTetrominoDown() do
+		-- make the tetromino fall
+		-- compute the y position
+		local y = self.tetromino.y + 1
+		while not self:collideWithGrid(tetrominos[self.tetromino.idx][self.tetromino.orientation], self.tetromino.x,  y) do
+			y = y + 1
 		end
+
+		print(y)
+
+		self.fall = y - 1
 	end
 end
 
