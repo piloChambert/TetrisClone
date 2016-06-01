@@ -30,6 +30,12 @@ function gameState:load()
 	self.decrementTimer = 1.0
 	self.fall = false -- when true, it moves the tetromino to the bottom
 
+	-- line offset are used to animate the grid when lines dissappear
+	self.lineOffset = {}
+	for y = 0,19 do
+		self.lineOffset[y] = 0
+	end
+
 	self.background = love.graphics.newImage("level1_background.png")
 end
 
@@ -131,6 +137,8 @@ function gameState:removeLine(idx)
 		for i = 0, 9 do
 			self.grid[j * 10 + i] = self.grid[(j - 1) * 10 + i]
 		end
+
+		self.lineOffset[j] = self.lineOffset[j] - 8
 	end
 
 	-- new blank line at top
@@ -177,8 +185,8 @@ end
 function gameState:update(dt)
 	local bottom = false
 	if self.fall then
-		local speed = 2048
-		self.tetromino.display_y = self.tetromino.display_y + math.max(-speed * dt, math.min(speed * dt, self.fall * 8 - self.tetromino.display_y))
+		local s = 2048 * dt
+		self.tetromino.display_y = self.tetromino.display_y + math.max(-s, math.min(s, self.fall * 8 - self.tetromino.display_y))
 		self.tetromino.y = math.floor(self.tetromino.display_y / 8)
 
 		bottom = not self:canMoveDown()
@@ -194,9 +202,15 @@ function gameState:update(dt)
 		end
 
 		-- updated tetromino displayed position
-		local speed = 256
-		self.tetromino.display_x = self.tetromino.display_x + math.max(-speed * dt, math.min(speed * dt, (self.tetromino.x * 8) - self.tetromino.display_x))
-		self.tetromino.display_y = self.tetromino.display_y + math.max(-speed * dt, math.min(speed * dt, (self.tetromino.y * 8) - self.tetromino.display_y))
+		local s = 256 * dt
+		self.tetromino.display_x = self.tetromino.display_x + math.max(-s, math.min(s, (self.tetromino.x * 8) - self.tetromino.display_x))
+		self.tetromino.display_y = self.tetromino.display_y + math.max(-s, math.min(s, (self.tetromino.y * 8) - self.tetromino.display_y))
+	end
+
+	-- update line animation
+	for i = 0, 19 do
+		local s = 256 * dt
+		self.lineOffset[i] = self.lineOffset[i] + math.max(-s, math.min(s, -self.lineOffset[i])) -- to 0
 	end
 
 	if bottom then
@@ -250,7 +264,8 @@ function gameState:draw()
 		for x = 0,9 do
 			local tile = self.grid[y * 10 + x]
 			if tile ~= -1 then
-				love.graphics.draw(self.tileImage, self.tileQuad[tile], x * 8, y * 8)
+				local offset = self.lineOffset[y]
+				love.graphics.draw(self.tileImage, self.tileQuad[tile], x * 8, y * 8 + offset)
 			end
 		end
 	end	
