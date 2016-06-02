@@ -1,10 +1,18 @@
 gameState = {}
 gameState.background = love.graphics.newImage("level1_background.png")
+gameState.bezelImage = love.graphics.newImage("bezel.png")
+gameState.scorePanelImage = love.graphics.newImage("score_panel.png")
+
 
 gameState.rotateSound = love.audio.newSource("rotate.wav", "static")
 gameState.moveSound = love.audio.newSource("move.wav", "static")
 gameState.fallSound = love.audio.newSource("fall.wav", "static")
 gameState.lineSound = love.audio.newSource("line.wav", "static")
+
+gameState.font = love.graphics.newImageFont("font.png"," !\"#$%&`()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_'abcdefghijklmnopqrstuvwxyz{|}")
+gameState.font:setFilter("nearest", "nearest")
+gameState.scoreFont = love.graphics.newImageFont("score_font.png","0123456789")
+gameState.scoreFont:setFilter("nearest", "nearest")
 
 tetrominos = require "tetrominos"
 
@@ -33,6 +41,8 @@ function gameState:load()
 	self.lineCount = 0
 	self.score = 0
 	self.level = 1
+	self.combo = 0
+
 	self.decrementTimer = 1.0
 	self.fall = false -- when true, it moves the tetromino to the bottom
 
@@ -265,10 +275,15 @@ function gameState:draw()
 	love.graphics.setColor(255, 255, 255, 255)
 	love.graphics.polygon("line", 119.5, 9.5, 200.5, 9.5, 200.5, 170.5, 119.5, 170.5)
 
+	-- draw bezel
+	love.graphics.draw(self.bezelImage, 117, 7)
+
+	-- draw panel
+	love.graphics.draw(self.scorePanelImage, 210, 7)	
+
 	-- draw the grid
 	love.graphics.push()
 	love.graphics.translate(120, 10)
-
 
 	for y = 0,19 do
 		for x = 0,9 do
@@ -285,13 +300,17 @@ function gameState:draw()
 
 	love.graphics.pop()
 
+	-- draw score
+	love.graphics.setFont(gameState.scoreFont)
+	love.graphics.print(string.format("%09d", self.score), 220, 28)
+
 	-- draw next
+	love.graphics.setFont(gameState.font)
+	love.graphics.print("Lines:" .. self.lineCount, 220, 40)
+
+
 	love.graphics.print("Next:", 220, 80)	
 	self:drawTetromino(self.nextTetromino, 0, 220, 100)	
-
-	love.graphics.print("Lines:" .. self.lineCount, 220, 20)
-	love.graphics.print("Score:" .. self.score, 220, 30)	
-	love.graphics.print("Level:" .. self.level, 220, 40)	
 
 end
 
@@ -373,10 +392,6 @@ end
 local currentState = gameState
 function love.load()
 	setupScreen()
-
-	local font = love.graphics.newImageFont("font.png"," !\"#$%&`()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_'abcdefghijklmnopqrstuvwxyz{|}")
-    font:setFilter("nearest", "nearest")
-    love.graphics.setFont(font)
 
 	currentState:load()
 end
