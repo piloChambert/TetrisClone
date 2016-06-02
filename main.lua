@@ -1,4 +1,10 @@
 gameState = {}
+gameState.background = love.graphics.newImage("level1_background.png")
+
+gameState.rotateSound = love.audio.newSource("rotate.wav", "static")
+gameState.moveSound = love.audio.newSource("move.wav", "static")
+gameState.fallSound = love.audio.newSource("fall.wav", "static")
+gameState.lineSound = love.audio.newSource("line.wav", "static")
 
 tetrominos = require "tetrominos"
 
@@ -36,7 +42,6 @@ function gameState:load()
 		self.lineOffset[y] = 0
 	end
 
-	self.background = love.graphics.newImage("level1_background.png")
 end
 
 function gameState:generateTetromino(idx) 
@@ -100,7 +105,6 @@ function gameState:fullLines()
 		for i = 0, 9 do
 			if self.grid[j * 10 + i] == -1 then
 				full = false
-				break
 			end
 		end
 
@@ -152,10 +156,13 @@ function gameState:updateGrid()
 	-- any line to remove?
 	local lines = self:fullLines()
 	local score = 10
+
 	if #lines > 0 then
+		print("allo")
 		for k, idx in ipairs(lines) do
 			print(idx)
 			self:removeLine(idx)
+			print(idx)
 		end
 
 		-- incremente score
@@ -163,6 +170,9 @@ function gameState:updateGrid()
 
 		-- extra bonus for multiple lines
 		score = score + 5
+
+		self.lineSound:rewind()
+		self.lineSound:play()
 	end
 
 	self.lineCount = self.lineCount + #lines
@@ -290,15 +300,18 @@ function gameState:keypressed(key, scancode, isrepeat)
 		local newOrient = (self.tetromino.orientation + 1) % 4
 		if self:canRotateTo(newOrient) then
 			self.tetromino.orientation = newOrient
+			self.rotateSound:play()
 		end
 	end
 
 	if key == "kp4" and self:canMoveLeft() and not self.fall then
 		self.tetromino.x = self.tetromino.x - 1
+		self.moveSound:play()
 	end
 
 	if key == "kp6" and self:canMoveRight() and not self.fall then
 		self.tetromino.x = self.tetromino.x + 1
+		self.moveSound:play()
 	end
 
 	if key == "kp2" then
@@ -312,6 +325,7 @@ function gameState:keypressed(key, scancode, isrepeat)
 		print(y)
 
 		self.fall = y - 1
+		self.fallSound:play()
 	end
 end
 
