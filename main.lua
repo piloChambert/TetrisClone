@@ -51,8 +51,8 @@ function moveItem(pos, dest, speed)
 end
 
 mainMenu = { 
-	position = {320, 0},
-	destPosition = {0, 0},
+	position = {640, 0},
+	destPosition = {640, 0},
 	selectedItem = 0
  }
 
@@ -76,22 +76,32 @@ function mainMenu:draw()
 end
 
 function mainMenu:keypressed(key, scancode, isrepeat)
-	if key == "left" then
+	if key == "left" and self.selectedItem ~= 0 then
 		self.selectedItem = 0
+		titleState.menuChangeSound:rewind()
+		titleState.menuChangeSound:play()		
 	end
 
-	if key == "right" then
+	if key == "right" and self.selectedItem ~= 1 then
 		self.selectedItem = 1
+		titleState.menuChangeSound:rewind()
+		titleState.menuChangeSound:play()		
 	end
 
 	if key == "return" then
 		-- hide
-		self.destPosition = {-640, 0}
+		titleState:showMenu(self, false, "left")
 
 		if self.selectedItem == 0 then
-			gameModeMenu.destPosition = {0, 0}
+			titleState:showMenu(gameModeMenu, true, "left")
 		else
+			-- show high score
+			titleState:showLogo(false)
+			titleState:showMenu(highscoreMenu, true, "left")
 		end
+
+		titleState.menuValidSound:rewind()
+		titleState.menuValidSound:play()		
 	end
 end
 
@@ -122,24 +132,34 @@ function gameModeMenu:draw()
 end
 
 function gameModeMenu:keypressed(key, scancode, isrepeat)
-	if key == "left" then
+	if key == "left" and self.selectedItem ~= 0 then
 		self.selectedItem = 0
+		titleState.menuChangeSound:rewind()
+		titleState.menuChangeSound:play()		
 	end
 
-	if key == "right" then
+	if key == "right" and self.selectedItem ~= 1 then
 		self.selectedItem = 1
+		titleState.menuChangeSound:rewind()
+		titleState.menuChangeSound:play()		
 	end
 
 	if key == "return" then
 		-- hide
-		self.destPosition = {-640, 0}
+		titleState:showMenu(self, false, "left")
+		titleState:showMenu(levelMenu, true, "left")
 
-		levelMenu.destPosition = {0, 0}
+
+		titleState.menuValidSound:rewind()
+		titleState.menuValidSound:play()	
 	end
 
 	if key == "escape" then
-		self.destPosition = {640, 0}		
-		mainMenu.destPosition = {0, 0}
+		titleState:showMenu(self, false, "right")
+		titleState:showMenu(mainMenu, true, "right")
+
+		titleState.menuCancelSound:rewind()
+		titleState.menuCancelSound:play()	
 	end
 end
 
@@ -173,30 +193,96 @@ end
 function levelMenu:keypressed(key, scancode, isrepeat)
 	if key == "left" and self.selectedItem > 0 then
 		self.selectedItem = self.selectedItem - 1
+
+		titleState.menuChangeSound:rewind()
+		titleState.menuChangeSound:play()	
 	end
 
 	if key == "right" and self.selectedItem < 9 then
 		self.selectedItem = self.selectedItem + 1
+
+		titleState.menuChangeSound:rewind()
+		titleState.menuChangeSound:play()	
 	end
 
 	if key == "return" then
-		-- hide
-		self.destPosition = {-640, 0}
+		titleState.menuValidSound:rewind()
+		titleState.menuValidSound:play()	
+
+		changeState(gameState)
 	end
 
 	if key == "escape" then
-		self.destPosition = {640, 0}		
-		gameModeMenu.destPosition = {0, 0}
+
+		titleState:showMenu(self, false, "right")
+		titleState:showMenu(gameModeMenu, true, "right")
+
+
+		titleState.menuCancelSound:rewind()
+		titleState.menuCancelSound:play()	
 	end
 end
 
-local titleState = {}
+highscoreMenu = {
+	position = {640, 0},
+	destPosition = {640, 0},
+	selectedItem = 0,
+	smallLogo = love.graphics.newImage("logo_small.png")
+}
+
+function highscoreMenu:update(dt)
+	moveItem(self.position, self.destPosition, 2048 * dt)	
+end
+
+function highscoreMenu:draw()
+	love.graphics.push()
+	love.graphics.translate(self.position[1], self.position[2])
+
+	love.graphics.draw(self.smallLogo, 126, 10)
+
+	love.graphics.setColor(0, 0, 0, 255)
+	love.graphics.printf("Highscore", 1, 31, 320, "center")	
+	love.graphics.setColor(255, 255, 255, 255)
+	love.graphics.printf("Highscore", 0, 30, 320, "center")
+
+
+	love.graphics.pop()
+end
+
+function highscoreMenu:keypressed(key, scancode, isrepeat)
+	if key == "escape" then
+
+		titleState:showMenu(self, false, "right")
+		titleState:showMenu(mainMenu, true, "right")
+		titleState:showLogo(true)
+
+
+		titleState.menuCancelSound:rewind()
+		titleState.menuCancelSound:play()	
+	end
+end
+
+titleState = {}
 titleState.background = love.graphics.newImage("menu_background.png")
 titleState.logoImage = love.graphics.newImage("logo.png")
-titleState.logoDestPosition = {89, 20}
-titleState.logoPosition = {320, 20}
+titleState.logoDestPosition = {89, -100}
+titleState.logoPosition = {89, -100}
+titleState.menuValidSound = love.audio.newSource("menu_valid.wav", "static")
+titleState.menuChangeSound = love.audio.newSource("menu_change.wav", "static")
+titleState.menuCancelSound = love.audio.newSource("menu_cancel.wav", "static")
+titleState.displayedMenu = nil
 
 function titleState:load()
+	self:showLogo(true)
+	self:showMenu(mainMenu, true, "left")
+end
+
+function titleState:showLogo(visible)
+	if visible then
+		self.logoDestPosition = {89, 20}
+	else
+		self.logoDestPosition = {89, -100}		
+	end
 end
 
 function titleState:update(dt)
@@ -204,6 +290,7 @@ function titleState:update(dt)
 	mainMenu:update(dt)
 	gameModeMenu:update(dt)
 	levelMenu:update(dt)
+	highscoreMenu:update(dt)
 end
 
 function titleState:draw()
@@ -220,6 +307,7 @@ function titleState:draw()
 	mainMenu:draw()
 	gameModeMenu:draw()
 	levelMenu:draw()
+	highscoreMenu:draw()
 end
 
 function titleState:keypressed(key, scancode, isrepeat)
@@ -233,6 +321,30 @@ function titleState:keypressed(key, scancode, isrepeat)
 
 	if levelMenu.position[1] == 0 then
 		levelMenu:keypressed(key, scan, code, isrepeat)
+	end
+
+	if highscoreMenu.position[1] == 0 then
+		highscoreMenu:keypressed(key, scan, code, isrepeat)
+	end
+end
+
+function titleState:showMenu(menu, visible, direction)
+	if visible then
+		menu.destPosition = {0, 0}
+
+		if direction == "left" then
+			menu.position = {640, 0}
+		else
+			menu.position = {-640, 0}
+		end
+	else
+		menu.position = {0, 0}
+
+		if direction == "left" then
+			menu.destPosition = {-640, 0}
+		else
+			menu.destPosition = {640, 0}
+		end
 	end
 end
 
@@ -276,11 +388,16 @@ function setupScreen()
 	end
 end
 
-local currentState = titleState
+currentState = nil
+function changeState(state)
+	currentState = state
+	currentState:load()
+end
+
 function love.load()
 	setupScreen()
 
-	currentState:load()
+	changeState(titleState)
 end
 
 function love.mousepressed(x, y, button)

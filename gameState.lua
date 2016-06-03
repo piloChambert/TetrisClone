@@ -1,5 +1,5 @@
 local gameState = {}
-gameState.background = love.graphics.newImage("level1_background.png")
+gameState.background = love.graphics.newImage("menu_background.png")
 gameState.bezelImage = love.graphics.newImage("bezel.png")
 gameState.scorePanelImage = love.graphics.newImage("score_panel.png")
 
