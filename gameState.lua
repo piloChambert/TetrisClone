@@ -1,3 +1,5 @@
+tetrominos = require "tetrominos"
+
 local gameState = {}
 gameState.background = love.graphics.newImage("menu_background.png")
 gameState.bezelImage = love.graphics.newImage("bezel.png")
@@ -8,12 +10,23 @@ gameState.rotateSound = love.audio.newSource("rotate.wav", "static")
 gameState.moveSound = love.audio.newSource("move.wav", "static")
 gameState.fallSound = love.audio.newSource("fall.wav", "static")
 gameState.lineSound = love.audio.newSource("line.wav", "static")
-
+gameState.levelUpSound = love.audio.newSource("level_up.wav", "static")
 
 gameState.scoreFont = love.graphics.newImageFont("score_font.png","0123456789")
 gameState.scoreFont:setFilter("nearest", "nearest")
 
-tetrominos = require "tetrominos"
+gameState.levels = {
+					{1.0, 10},
+					{0.7, 20},
+					{0.5, 40},
+					{0.42, 80},
+					{0.35, 100},
+					{0.3, 120},
+					{0.2, 140},
+					{0.12, 160},
+					{0.08, 180},
+					{0.05, 200}
+}
 
 function gameState:load()
 	-- create an empty grid
@@ -43,7 +56,6 @@ function gameState:load()
 	self.combo = 1
 	self.blinkColorTimer = 0
 
-	self.decrementTimer = 1.0
 	self.fall = false -- when true, it moves the tetromino to the bottom
 
 	-- line offset are used to animate the grid when lines dissappear
@@ -176,17 +188,33 @@ function gameState:updateGrid()
 		end
 
 		-- incremente score
-		self.score = self.score + score
+		self.score = self.score + score * self.combo
 
 		-- extra bonus for multiple lines
 		score = score + 5
 
-		self.lineSound:rewind()
-		self.lineSound:play()
-	end
-
-	if #lines > 0 then
+		-- update combo status
 		self.combo = self.combo * 2
+
+		-- update level
+		local levelUp = false
+		if self.level < 10 then
+			-- increase level
+			if self.levels[self.level][2] < self.score then
+				self.level = self.level + 1
+				levelUp = true
+			end
+		end
+
+		if not levelUp then
+			self.lineSound:rewind()
+			self.lineSound:play()
+		else 
+			self.levelUpSound:rewind()
+			self.levelUpSound:play()
+		end
+	else
+		self.combo = 1
 	end
 
 	self.lineCount = self.lineCount + #lines
@@ -207,18 +235,20 @@ function gameState:moveTetrominoDown()
 end
 
 function gameState:update(dt)
+	-- move tetromino
 	local bottom = false
 	if self.fall then
+		-- if falling, move it until we reach the bottom
 		local s = 2048 * dt
 		self.tetromino.display_y = self.tetromino.display_y + math.max(-s, math.min(s, self.fall * 8 - self.tetromino.display_y))
 		self.tetromino.y = math.floor(self.tetromino.display_y / 8)
 
 		bottom = not self:canMoveDown()
 	else
-		-- move the tetromino down
+		-- move the tetromino down according to timer
 		self.timer = self.timer + dt
 
-		if self.timer > self.decrementTimer then
+		if self.timer > self.levels[self.level][1] then
 			bottom = self:moveTetrominoDown()
 
 			-- reset timer
@@ -237,6 +267,7 @@ function gameState:update(dt)
 		self.lineOffset[i] = self.lineOffset[i] + math.max(-s, math.min(s, -self.lineOffset[i])) -- to 0
 	end
 
+	-- if the tetromino reach the end of the grid
 	if bottom then
 		-- copy tetromino to grid
 		self:copyTetromino()
@@ -253,6 +284,12 @@ function gameState:update(dt)
 
 		-- reset fall state
 		self.fall = false
+
+		-- are we stuck?
+		if self:collideWithGrid(tetrominos[self.tetromino.idx][self.tetromino.orientation], self.tetromino.x, self.tetromino.y) then
+			-- Game over!
+			changeState(titleState)
+		end
 	end
 
 	-- color blink timer
@@ -277,7 +314,6 @@ end
 
 function gameState:drawNextTetromino(x, y)
 	love.graphics.setColor(255, 255, 255, 255)
-	love.graphics.draw(self.nextCellImage, x, y)
 
 	local offset = {0, 0}
 	local n = self.nextTetromino
@@ -297,33 +333,38 @@ function gameState:drawNextTetromino(x, y)
 		offset = {4, 0}
 	end
 
-	self:drawTetromino(self.nextTetromino, 0, x + 6 + offset[1], y + 6 + offset[2])	
+	local _x = x + offset[1]
+	local _y = y + offset[2] + 10 
+
+	-- outline
+	love.graphics.setColor(0, 0, 0, 255)
+	for j = -1, 1 do
+		for i = -1, 1 do
+			self:drawTetromino(self.nextTetromino, 0, _x + i, _y + j)	
+		end
+	end
+
+	love.graphics.setColor(255, 255, 255, 255)
+	self:drawTetromino(self.nextTetromino, 0, _x, _y)
 
 	love.graphics.setColor(0, 0, 0, 255)
-	love.graphics.print("Next", x+1, y - 9)	
+	love.graphics.printf("Next", x+1, y+1, 32, "right")	
 	love.graphics.setColor(255, 255, 255, 255)
-	love.graphics.print("Next", x, y - 10)	
+	love.graphics.printf("Next", x, y, 32, "right")	
 end
 
 function gameState:draw()
 	-- draw background
 	love.graphics.draw(self.background)
 
-	-- draw a simple frame
-	love.graphics.setColor(0, 0, 0, 230)
-	love.graphics.polygon("fill", 120, 10, 200, 10, 200, 170, 120, 170)
-	love.graphics.setColor(255, 255, 255, 255)
-	love.graphics.polygon("line", 119.5, 9.5, 200.5, 9.5, 200.5, 170.5, 119.5, 170.5)
-
-	-- draw bezel
-	love.graphics.draw(self.bezelImage, 117, 7)
-
-	-- draw panel
-	--love.graphics.draw(self.scorePanelImage, 210, 7)	
-
 	-- draw the grid
 	love.graphics.push()
 	love.graphics.translate(120, 10)
+
+	-- draw a simple frame
+	love.graphics.setColor(0, 0, 0, 128)
+	love.graphics.polygon("fill", 0, 0, 80, 0, 80, 160, 0, 160)
+	love.graphics.setColor(255, 255, 255, 255)
 
 	for y = 0,19 do
 		for x = 0,9 do
@@ -343,41 +384,37 @@ function gameState:draw()
 	-- draw score
 	love.graphics.setFont(gameState.scoreFont)
 	love.graphics.setColor(0, 0, 0, 255)
-	love.graphics.printf(self.score, 211, 21, 80, "left")
-	love.graphics.printf(self.lineCount, 211, 51, 80, "left")
+	love.graphics.printf(self.score, 211, 41, 80, "left")
+	love.graphics.printf(self.lineCount, 211, 71, 80, "left")
 	love.graphics.setColor(255, 255, 255, 255)
-	love.graphics.printf(self.score, 210, 20, 80, "left")
-	love.graphics.printf(self.lineCount, 210, 50, 80, "left")
+	love.graphics.printf(self.score, 210, 40, 80, "left")
+	love.graphics.printf(self.lineCount, 210, 70, 80, "left")
 
-	-- draw next
+	-- draw game status
 	love.graphics.setFont(gameFont)
 	love.graphics.setColor(0, 0, 0, 255)
-	love.graphics.printf("Score", 211, 11, 80, "left")	
-	love.graphics.printf("Lines", 211, 41, 80, "left")
+	love.graphics.printf("Level " .. self.level, 211, 11, 80, "left")		
+	love.graphics.printf("Score", 211, 31, 80, "left")	
+	love.graphics.printf("Lines", 211, 61, 80, "left")
 	love.graphics.setColor(255, 255, 255, 255)
-	love.graphics.printf("Score", 210, 10, 80, "left")
-	love.graphics.printf("Lines", 210, 40, 80, "left")
-	love.graphics.printf("Combo", 210, 70, 80, "left")
+	love.graphics.printf("Level " .. self.level, 211, 10, 80, "left")		
+	love.graphics.printf("Score", 210, 30, 80, "left")
+	love.graphics.printf("Lines", 210, 60, 80, "left")
 
 	-- print combo
-	if self.combo > 0 then
-		love.graphics.setColor(0, 0, 0, 255)
-		love.graphics.print("Combo", 211, 71)
-		love.graphics.setColor(255, 255, 255, 255)
-		love.graphics.print("Combo", 210, 70)
-
+	if self.combo > 1 then
 		local green = self.blinkColorTimer
 		if green > 255 then
 			green = 511 - green
 		end
 
 		love.graphics.setColor(255, green, 0, 255)
-		love.graphics.print(string.format("X%d", self.combo), 260, 70)
+		love.graphics.print(string.format("X%d", self.combo), 260, 30)
 	end
 
 
 	-- next tetromino
-	self:drawNextTetromino(40,40)
+	self:drawNextTetromino(110-32,10)
 end
 
 function gameState:keypressed(key, scancode, isrepeat)
@@ -411,6 +448,14 @@ function gameState:keypressed(key, scancode, isrepeat)
 
 		self.fall = y - 1
 		self.fallSound:play()
+	end
+
+	if key == "kp+" then
+		self.level = math.min(self.level + 1, 10)
+	end
+
+	if key == "kp-" then
+		self.level = math.max(0, self.level - 1)
 	end
 end
 
