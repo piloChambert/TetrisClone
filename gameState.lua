@@ -1,18 +1,39 @@
 tetrominos = require "tetrominos"
 
+local gameStatePlay = {}
+function gameStatePlay:onEnter()
+end
+
+function gameStatePlay:onExit()
+end
+
+function gameStatePlay:onUpdate()
+end
+
+local gameStateGameOver = {}
+function gameStateGameOver:onEnter()
+end
+
+function gameStateGameOver:onExit()
+end
+
+function gameStateGameOver:onUpdate()
+end
+
+
 local gameState = {}
-gameState.background = love.graphics.newImage("menu_background.png")
-gameState.bezelImage = love.graphics.newImage("bezel.png")
-gameState.scorePanelImage = love.graphics.newImage("score_panel.png")
-gameState.nextCellImage = love.graphics.newImage("next_cell.png")
+gameState.background = love.graphics.newImage("Gfx/menu_background.png")
+gameState.bezelImage = love.graphics.newImage("Gfx/bezel.png")
+gameState.scorePanelImage = love.graphics.newImage("Gfx/score_panel.png")
+gameState.nextCellImage = love.graphics.newImage("Gfx/next_cell.png")
 
-gameState.rotateSound = love.audio.newSource("rotate.wav", "static")
-gameState.moveSound = love.audio.newSource("move.wav", "static")
-gameState.fallSound = love.audio.newSource("fall.wav", "static")
-gameState.lineSound = love.audio.newSource("line.wav", "static")
-gameState.levelUpSound = love.audio.newSource("level_up.wav", "static")
+gameState.rotateSound = love.audio.newSource("Sounds/rotate.wav", "static")
+gameState.moveSound = love.audio.newSource("Sounds/move.wav", "static")
+gameState.fallSound = love.audio.newSource("Sounds/fall.wav", "static")
+gameState.lineSound = love.audio.newSource("Sounds/line.wav", "static")
+gameState.levelUpSound = love.audio.newSource("Sounds/level_up.wav", "static")
 
-gameState.scoreFont = love.graphics.newImageFont("score_font.png","0123456789")
+gameState.scoreFont = love.graphics.newImageFont("Gfx/score_font.png","0123456789")
 gameState.scoreFont:setFilter("nearest", "nearest")
 
 gameState.levels = {
@@ -39,7 +60,7 @@ function gameState:load()
 	end
 
 	-- create tiles quad
-	self.tileImage = love.graphics.newImage("tiles.png")
+	self.tileImage = love.graphics.newImage("Gfx/tiles.png")
 	self.tileQuad = {}
 	for i = 0, 6 do
 		self.tileQuad[i] = love.graphics.newQuad(i * 8, 0, 8, 8, self.tileImage:getDimensions())
@@ -64,6 +85,7 @@ function gameState:load()
 		self.lineOffset[y] = 0
 	end
 
+	self.fsm = FSM(gameStatePlay)
 end
 
 function gameState:generateTetromino(idx) 
@@ -261,12 +283,6 @@ function gameState:update(dt)
 		self.tetromino.display_y = self.tetromino.display_y + math.max(-s, math.min(s, (self.tetromino.y * 8) - self.tetromino.display_y))
 	end
 
-	-- update line animation
-	for i = 0, 19 do
-		local s = 256 * dt
-		self.lineOffset[i] = self.lineOffset[i] + math.max(-s, math.min(s, -self.lineOffset[i])) -- to 0
-	end
-
 	-- if the tetromino reach the end of the grid
 	if bottom then
 		-- copy tetromino to grid
@@ -290,6 +306,12 @@ function gameState:update(dt)
 			-- Game over!
 			changeState(titleState)
 		end
+	end
+
+	-- update line animation
+	for i = 0, 19 do
+		local s = 256 * dt
+		self.lineOffset[i] = self.lineOffset[i] + math.max(-s, math.min(s, -self.lineOffset[i])) -- to 0
 	end
 
 	-- color blink timer
