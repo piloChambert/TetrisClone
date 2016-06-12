@@ -186,6 +186,8 @@ function game:load()
 	-- highscore
 	self.highscoreMenu = Entity.new(640, 0)
 	self.scene:addChild(self.highscoreMenu)
+	self.highscoreMenu:addChild(Sprite.new(love.graphics.newImage("Gfx/logo_small.png"), nil, 126, 5))
+	self.highscoreMenu:addChild(Text.new("Highscores", 0, 25, 320, "center"))
 
 	self.fsm = FSM.new(mainMenuState)
 end
