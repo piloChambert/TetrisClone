@@ -1,23 +1,24 @@
 tetrominos = require "tetrominos"
 
 local gameStatePlay = {}
-function gameStatePlay:onEnter()
+function gameStatePlay:enter()
 end
 
-function gameStatePlay:onExit()
+function gameStatePlay:update(dt)
 end
 
-function gameStatePlay:onUpdate()
+function gameStatePlay:exit()
 end
+
 
 local gameStateGameOver = {}
-function gameStateGameOver:onEnter()
+function gameStateGameOver:enter()
 end
 
-function gameStateGameOver:onExit()
+function gameStateGameOver:update(dt)
 end
 
-function gameStateGameOver:onUpdate()
+function gameStateGameOver:exit()
 end
 
 
@@ -49,7 +50,7 @@ gameState.levels = {
 					{0.05, 200}
 }
 
-function gameState:load()
+function gameState:enter()
 	-- create an empty grid
 	self.grid = {}
 
@@ -388,6 +389,7 @@ function gameState:draw()
 	love.graphics.polygon("fill", 0, 0, 80, 0, 80, 160, 0, 160)
 	love.graphics.setColor(255, 255, 255, 255)
 
+	-- draw the grid
 	for y = 0,19 do
 		for x = 0,9 do
 			local tile = self.grid[y * 10 + x]

@@ -8,10 +8,10 @@ gameFont:setFilter("nearest", "nearest")
 
 mainMenuState = { idx = 0 }
 function mainMenuState:enter()
-	game.newgameButton.active = self.idx == 0
-	game.highscoresButton.active = self.idx == 1	
+	menuState.newgameButton.active = self.idx == 0
+	menuState.highscoresButton.active = self.idx == 1	
 
-	game.mainMenu:animateTo(0, 0, 2048)
+	menuState.mainMenu:animateTo(0, 0, 2048)
 end
 
 function mainMenuState:update(dt)
@@ -24,17 +24,17 @@ function mainMenuState:update(dt)
 	end
 
 	if PlayerControl.player1Control:testTrigger("start") then
-		game.mainMenu:animateTo(-640, 0, 2048)
+		menuState.mainMenu:animateTo(-640, 0, 2048)
 
 		if self.idx == 0 then
-			game.fsm:changeState(gameModeMenuState)
+			menuState.fsm:changeState(gameModeMenuState)
 		else
-			game.fsm:changeState(highscoreMenuState)
+			menuState.fsm:changeState(highscoreMenuState)
 		end
 	end
 
-	game.newgameButton.active = self.idx == 0
-	game.highscoresButton.active = self.idx == 1	
+	menuState.newgameButton.active = self.idx == 0
+	menuState.highscoresButton.active = self.idx == 1	
 end
 
 function mainMenuState:exit()
@@ -42,10 +42,10 @@ end
 
 gameModeMenuState = { idx = 0 }
 function gameModeMenuState:enter()
-	game.classicButton.active = self.idx == 0
-	game.challengeButton.active = self.idx == 1	
+	menuState.classicButton.active = self.idx == 0
+	menuState.challengeButton.active = self.idx == 1	
 
-	game.gameModeMenu:animateTo(0, 0, 2048)
+	menuState.gameModeMenu:animateTo(0, 0, 2048)
 end
 
 function gameModeMenuState:update(dt)
@@ -58,17 +58,17 @@ function gameModeMenuState:update(dt)
 	end
 
 	if PlayerControl.player1Control:testTrigger("start") then
-		game.gameModeMenu:animateTo(-640, 0, 2048)
-		game.fsm:changeState(levelMenuState)
+		menuState.gameModeMenu:animateTo(-640, 0, 2048)
+		menuState.fsm:changeState(levelMenuState)
 	end
 
 	if PlayerControl.player1Control:testTrigger("back") then
-		game.gameModeMenu:animateTo(640, 0, 2048)
-		game.fsm:changeState(mainMenuState)
+		menuState.gameModeMenu:animateTo(640, 0, 2048)
+		menuState.fsm:changeState(mainMenuState)
 	end
 
-	game.classicButton.active = self.idx == 0
-	game.challengeButton.active = self.idx == 1	
+	menuState.classicButton.active = self.idx == 0
+	menuState.challengeButton.active = self.idx == 1	
 end
 
 function gameModeMenuState:exit()
@@ -77,10 +77,10 @@ end
 levelMenuState = { idx = 0 }
 function levelMenuState:enter()
 	for i = 0, 9 do
-		game.levelButtons[i+1].active = self.idx == i
+		menuState.levelButtons[i+1].active = self.idx == i
 	end
 
-	game.levelMenu:animateTo(0, 0, 2048)
+	menuState.levelMenu:animateTo(0, 0, 2048)
 end
 
 function levelMenuState:update(dt)
@@ -93,17 +93,17 @@ function levelMenuState:update(dt)
 	end
 
 	if PlayerControl.player1Control:testTrigger("start") then
-		game.levelMenu:animateTo(-640, 0, 2048)
-		game.fsm:changeState(startGameState)
+		menuState.levelMenu:animateTo(-640, 0, 2048)
+		game.fsm:changeState(gameState)
 	end
 
 	if PlayerControl.player1Control:testTrigger("back") then
-		game.levelMenu:animateTo(640, 0, 2048)
-		game.fsm:changeState(gameModeMenuState)
+		menuState.levelMenu:animateTo(640, 0, 2048)
+		menuState.fsm:changeState(gameModeMenuState)
 	end
 
 	for i = 0, 9 do
-		game.levelButtons[i+1].active = self.idx == i
+		menuState.levelButtons[i+1].active = self.idx == i
 	end
 end
 
@@ -112,42 +112,37 @@ end
 
 highscoreMenuState = {}
 function highscoreMenuState:enter()
-	game.logo:animateTo(89, -100, 1024)
-	game.highscoreMenu:animateTo(0, 0, 2048)
+	menuState.logo:animateTo(89, -100, 1024)
+	menuState.highscoreMenu:animateTo(0, 0, 2048)
 end
 
 function highscoreMenuState:update(dt)
 	if PlayerControl.player1Control:testTrigger("start") then
-		game.highscoreMenu:animateTo(640, 0, 2048)
-		game.logo:animateTo(89, 20, 1024)
-		game.fsm:changeState(mainMenuState)
+		menuState.highscoreMenu:animateTo(640, 0, 2048)
+		menuState.logo:animateTo(89, 20, 1024)
+		menuState.fsm:changeState(mainMenuState)
 	end
 
 	if PlayerControl.player1Control:testTrigger("back") then
-		game.highscoreMenu:animateTo(640, 0, 2048)
-		game.logo:animateTo(89, 20, 1024)
-		game.fsm:changeState(mainMenuState)
+		menuState.highscoreMenu:animateTo(640, 0, 2048)
+		menuState.logo:animateTo(89, 20, 1024)
+		menuState.fsm:changeState(mainMenuState)
 	end
 end
 
 function highscoreMenuState:exit()
 end
 
-game = {}
-function game:load()
-	self.scene = Entity.new()
-
-	-- background
-	self.backgroundImage = love.graphics.newImage("Gfx/menu_background.png")
-
+menuState = {}
+function menuState:enter()
 	-- logo
 	self.logo = Sprite.new(love.graphics.newImage("Gfx/logo.png"), nil, 89, -100)
 	self.logo:animateTo(89, 20, 1024)
-	self.scene:addChild(self.logo)
+	game.scene:addChild(self.logo)
 
 	-- main menu
 	self.mainMenu = Entity.new(640, 0)
-	self.scene:addChild(self.mainMenu)
+	game.scene:addChild(self.mainMenu)
 	self.mainMenu:addChild(Text.new("Main Menu", 0, 80, 320, "center"))
 
 	self.newgameButton = Button.new("New Game", 70, 100)
@@ -159,7 +154,7 @@ function game:load()
 
 	-- game mode menu
 	self.gameModeMenu = Entity.new(640, 0)
-	self.scene:addChild(self.gameModeMenu)
+	game.scene:addChild(self.gameModeMenu)
 	self.gameModeMenu:addChild(Text.new("Choose Mode", 0, 80, 320, "center"))
 
 	self.classicButton = Button.new("Classic", 70, 100)
@@ -171,7 +166,7 @@ function game:load()
 
 	-- choose level
 	self.levelMenu = Entity.new(640, 0)
-	self.scene:addChild(self.levelMenu)
+	game.scene:addChild(self.levelMenu)
 	self.levelMenu:addChild(Text.new("Choose Level", 0, 80, 320, "center"))
 
 	self.levelButtons = {}
@@ -185,11 +180,33 @@ function game:load()
 
 	-- highscore
 	self.highscoreMenu = Entity.new(640, 0)
-	self.scene:addChild(self.highscoreMenu)
+	game.scene:addChild(self.highscoreMenu)
 	self.highscoreMenu:addChild(Sprite.new(love.graphics.newImage("Gfx/logo_small.png"), nil, 126, 5))
 	self.highscoreMenu:addChild(Text.new("Highscores", 0, 25, 320, "center"))
 
 	self.fsm = FSM.new(mainMenuState)
+end
+
+function menuState:update(dt)
+	self.fsm:update(dt)
+end
+
+function menuState:exit()
+	-- remove element from scene
+	game.scene:removeChild(self.logo)
+	game.scene:removeChild(self.mainMenu)
+	game.scene:removeChild(self.gameModeMenu)
+	game.scene:removeChild(self.levelMenu)
+	game.scene:removeChild(self.highscoreMenu)
+end
+
+game = {}
+function game:load()
+	-- background
+	self.backgroundImage = love.graphics.newImage("Gfx/menu_background.png")
+
+	self.scene = Entity.new()
+	self.fsm = FSM.new(menuState)
 end
 
 function game:update(dt)
