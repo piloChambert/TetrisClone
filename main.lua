@@ -205,18 +205,42 @@ function game:load()
 	-- background
 	self.backgroundImage = love.graphics.newImage("Gfx/menu_background.png")
 
+	-- fade
+	self.fadeDest = 255
+	self.fadeValue = 255
+
 	self.scene = Entity.new()
 	self.fsm = FSM.new(menuState)
+	self:fadeIn()
+
+end
+
+-- fade the screen in the next frames
+function game:fadeOut()
+	self.fadeDest = 255
+end
+
+-- fade the screen in the next frames
+function game:fadeIn()
+	self.fadeDest = 0
 end
 
 function game:update(dt)
 	self.fsm:update(dt)
 	self.scene:update(dt)
+
+	-- update fade
+	local fadeSpeed = 512 * dt
+	self.fadeValue = self.fadeValue + math.max(math.min(self.fadeDest - self.fadeValue, fadeSpeed), -fadeSpeed)
 end
 
 function game:draw()
 	love.graphics.draw(self.backgroundImage)
 	self.scene:draw()
+
+	-- fade
+	love.graphics.setColor(0, 0, 0, self.fadeValue)
+	love.graphics.polygon("fill", 0, 0, 320, 0, 320, 180, 0, 180)
 end
 
 

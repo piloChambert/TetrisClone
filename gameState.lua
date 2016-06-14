@@ -10,17 +10,20 @@ function gameStatePlay:update(dt)
 		local newOrient = (gameState.tetromino.orientation + 1) % 4
 		if gameState:canRotateTo(newOrient) then
 			gameState.tetromino.orientation = newOrient
+			gameState.rotateSound:stop()			
 			gameState.rotateSound:play()
 		end
 	end
 
 	if PlayerControl.player1Control:testTrigger("left") and gameState:canMoveLeft() and not gameState.fall then
 		gameState.tetromino.x = gameState.tetromino.x - 1
+		gameState.moveSound:stop()		
 		gameState.moveSound:play()
 	end
 
 	if PlayerControl.player1Control:testTrigger("right") and gameState:canMoveRight() and not gameState.fall then
 		gameState.tetromino.x = gameState.tetromino.x + 1
+		gameState.moveSound:stop()		
 		gameState.moveSound:play()
 	end
 
@@ -35,6 +38,7 @@ function gameStatePlay:update(dt)
 		print(y)
 
 		gameState.fall = y - 1
+		gameState.fallSound:stop()
 		gameState.fallSound:play()
 	end
 
@@ -48,9 +52,28 @@ end
 
 local gameStateGameOver = {}
 function gameStateGameOver:enter()
+	gameState.gridEntity:removeChild(gameState.currentTetrominoEntity)
+
+	self.timer = 0
+	self.currentLine = 0
+
+	for y = 0,19 do
+	end
 end
 
 function gameStateGameOver:update(dt)
+	self.timer = self.timer + dt
+
+	if self.timer > 0.01 and self.currentLine < 20 then
+		self.timer = self.timer - 0.01
+
+		-- fill line
+		for x = 0,9 do
+			gameState.grid[(19 - self.currentLine) * 10 + x] = 7
+		end
+
+		self.currentLine = self.currentLine + 1
+	end
 end
 
 function gameStateGameOver:exit()
@@ -162,7 +185,7 @@ gameState.levels = {
 -- create tiles quad
 gameState.tileImage = love.graphics.newImage("Gfx/tiles.png")
 gameState.tileQuad = {}
-for i = 0, 6 do
+for i = 0, 7 do
 	gameState.tileQuad[i] = love.graphics.newQuad(i * 8, 0, 8, 8, gameState.tileImage:getDimensions())
 end
 
@@ -201,17 +224,22 @@ function gameState:enter()
 	self.linesText = Text.new("0", 0, 70)
 	self.scorePanel:addChild(self.linesText)
 
-	self.nextTetrominoEntity = TetrominoEntity.new(-640+78, 10, self.nextTetromino, 0)
-	game.scene:addChild(self.nextTetrominoEntity)
+	self.nextTetrominoPanel = Entity.new(-640 + 78, 10)
+	game.scene:addChild(self.nextTetrominoPanel)
+	self.nextTetrominoPanel:addChild(Text.new("Next", 0, 0, 32, "left"))
+	self.nextTetrominoEntity = TetrominoEntity.new(0, 20, self.nextTetromino, 0)
+	self.nextTetrominoPanel:addChild(self.nextTetrominoEntity)
 
-	self.gridEntity = TetrominoGrid.new(self.grid, 120, 10)
+
+	self.gridEntity = TetrominoGrid.new(self.grid, 120, 370)
 	game.scene:addChild(self.gridEntity)
 
 	self.currentTetrominoEntity = TetrominoEntity.new(self.tetromino.x * 8, self.tetromino.y * 8, self.tetromino.idx, self.tetromino.orientation)
 	self.gridEntity:addChild(self.currentTetrominoEntity)
 
 	self.scorePanel:animateTo(210, 0, 2048)
-	self.nextTetrominoEntity:animateTo(78, 0, 2048)
+	self.nextTetrominoPanel:animateTo(78, 10, 2048)
+	self.gridEntity:animateTo(120, 10, 2048)
 
 	self.fsm = FSM(gameStatePlay)
 end
@@ -437,7 +465,7 @@ function gameState:updateTetromino(dt)
 		-- are we stuck?
 		if self:collideWithGrid(tetrominos[self.tetromino.idx][self.tetromino.orientation], self.tetromino.x, self.tetromino.y) then
 			-- Game over!
-			changeState(titleState)
+			self.fsm:changeState(gameStateGameOver)
 		end
 	end
 
