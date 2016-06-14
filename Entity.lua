@@ -71,7 +71,18 @@ end
 function Entity:animateTo(x, y, speed)
 	self.targetX = x
 	self.targetY = y
-	self.animationSpeed = speed
+
+	if speed then
+		self.animationSpeed = speed
+	else
+		animationSpeed = 1
+		self.x = x
+		self.y = y
+	end
+end
+
+function Entity:moveTo(x, y)
+	self:animateTo(x, y)
 end
 
 Button = {}

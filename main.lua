@@ -1,7 +1,7 @@
 FSM = require "FSM"
-gameState = require "gameState"
 require "PlayerControl"
 require "Entity"
+gameState = require "gameState"
 
 gameFont = love.graphics.newImageFont("Gfx/font.png"," !\"#$%&`()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_'abcdefghijklmnopqrstuvwxyz{|}")
 gameFont:setFilter("nearest", "nearest")

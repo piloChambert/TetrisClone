@@ -5,6 +5,41 @@ function gameStatePlay:enter()
 end
 
 function gameStatePlay:update(dt)
+	-- check input
+	if PlayerControl.player1Control:testTrigger("attack") and not gameState.fall then
+		local newOrient = (gameState.tetromino.orientation + 1) % 4
+		if gameState:canRotateTo(newOrient) then
+			gameState.tetromino.orientation = newOrient
+			gameState.rotateSound:play()
+		end
+	end
+
+	if PlayerControl.player1Control:testTrigger("left") and gameState:canMoveLeft() and not gameState.fall then
+		gameState.tetromino.x = gameState.tetromino.x - 1
+		gameState.moveSound:play()
+	end
+
+	if PlayerControl.player1Control:testTrigger("right") and gameState:canMoveRight() and not gameState.fall then
+		gameState.tetromino.x = gameState.tetromino.x + 1
+		gameState.moveSound:play()
+	end
+
+	if PlayerControl.player1Control:testTrigger("down") then
+		-- make the tetromino fall
+		-- compute the y position
+		local y = gameState.tetromino.y + 1
+		while not gameState:collideWithGrid(tetrominos[gameState.tetromino.idx][gameState.tetromino.orientation], gameState.tetromino.x,  y) do
+			y = y + 1
+		end
+
+		print(y)
+
+		gameState.fall = y - 1
+		gameState.fallSound:play()
+	end
+
+	-- move tetromino
+	gameState:updateTetromino(dt)
 end
 
 function gameStatePlay:exit()
@@ -21,6 +56,80 @@ end
 function gameStateGameOver:exit()
 end
 
+TetrominoEntity = {}
+function TetrominoEntity.new(x, y, index, orientation)
+	local self = Entity.new(x, y)
+
+	self.index = index
+	self.orientation = orientation
+	self.draw = TetrominoEntity.draw
+
+	return self
+end
+
+function TetrominoEntity:draw(parentX, parentY)
+	local _x = self.x + (parentX or 0)
+	local _y = self.y + (parentY or 0)
+
+	local tetromino = tetrominos[self.index][self.orientation]
+
+	for i = 0,3 do
+		for j = 0,3 do
+			local tile = tetromino[j * 4 + i + 1]
+			if tile ~= 0 then
+				love.graphics.draw(gameState.tileImage, gameState.tileQuad[self.index], _x + i * 8, _y + j * 8)
+			end
+		end
+	end	
+
+	Entity.draw(self, parentX, parentY)
+end
+
+TetrominoGrid = {}
+function TetrominoGrid.new(grid, x, y)
+	local self = Entity.new(x, y)
+	self.draw = TetrominoGrid.draw
+
+	self.grid = grid
+
+	-- line offset are used to animate the grid when lines dissappear
+	self.lineOffset = {}
+	for y = 0,19 do
+		self.lineOffset[y] = 0
+	end
+
+	return self
+end
+
+function TetrominoGrid:draw(parentX, parentY)
+	local _x = self.x + (parentX or 0)
+	local _y = self.y + (parentY or 0)
+
+	-- draw the grid
+	love.graphics.push()
+	love.graphics.translate(_x, _y)
+
+
+	-- draw a simple frame
+	love.graphics.setColor(0, 0, 0, 128)
+	love.graphics.polygon("fill", 0, 0, 80, 0, 80, 160, 0, 160)
+	love.graphics.setColor(255, 255, 255, 255)
+
+	-- draw the grid
+	for y = 0,19 do
+		for x = 0,9 do
+			local tile = self.grid[y * 10 + x]
+			if tile ~= -1 then
+				local offset = self.lineOffset[y]
+				love.graphics.draw(gameState.tileImage, gameState.tileQuad[tile], x * 8, y * 8 + offset)
+			end
+		end
+	end	
+
+	love.graphics.pop()
+
+	Entity.draw(self, parentX, parentY)
+end
 
 local gameState = {}
 gameState.background = love.graphics.newImage("Gfx/menu_background.png")
@@ -50,6 +159,13 @@ gameState.levels = {
 					{0.05, 200}
 }
 
+-- create tiles quad
+gameState.tileImage = love.graphics.newImage("Gfx/tiles.png")
+gameState.tileQuad = {}
+for i = 0, 6 do
+	gameState.tileQuad[i] = love.graphics.newQuad(i * 8, 0, 8, 8, gameState.tileImage:getDimensions())
+end
+
 function gameState:enter()
 	-- create an empty grid
 	self.grid = {}
@@ -58,13 +174,6 @@ function gameState:enter()
 		for x = 0,9 do
 			self.grid[y * 10 + x] = -1
 		end
-	end
-
-	-- create tiles quad
-	self.tileImage = love.graphics.newImage("Gfx/tiles.png")
-	self.tileQuad = {}
-	for i = 0, 6 do
-		self.tileQuad[i] = love.graphics.newQuad(i * 8, 0, 8, 8, self.tileImage:getDimensions())
 	end
 
 	self:generateTetromino(love.math.random(7) - 1)
@@ -76,15 +185,33 @@ function gameState:enter()
 	self.score = 0
 	self.level = 1
 	self.combo = 1
-	self.blinkColorTimer = 0
 
 	self.fall = false -- when true, it moves the tetromino to the bottom
 
-	-- line offset are used to animate the grid when lines dissappear
-	self.lineOffset = {}
-	for y = 0,19 do
-		self.lineOffset[y] = 0
-	end
+	-- add element to the scene
+	self.scorePanel = Entity.new(640,0)
+	game.scene:addChild(self.scorePanel)
+
+	self.levelText = Text.new("Level " .. self.level, 0, 10)
+	self.scorePanel:addChild(self.levelText)
+	self.scorePanel:addChild(Text.new("Score", 0, 30))
+	self.scoreText = Text.new("0", 0, 40)
+	self.scorePanel:addChild(self.scoreText)
+	self.scorePanel:addChild(Text.new("Line", 0, 60))
+	self.linesText = Text.new("0", 0, 70)
+	self.scorePanel:addChild(self.linesText)
+
+	self.nextTetrominoEntity = TetrominoEntity.new(-640+78, 10, self.nextTetromino, 0)
+	game.scene:addChild(self.nextTetrominoEntity)
+
+	self.gridEntity = TetrominoGrid.new(self.grid, 120, 10)
+	game.scene:addChild(self.gridEntity)
+
+	self.currentTetrominoEntity = TetrominoEntity.new(self.tetromino.x * 8, self.tetromino.y * 8, self.tetromino.idx, self.tetromino.orientation)
+	self.gridEntity:addChild(self.currentTetrominoEntity)
+
+	self.scorePanel:animateTo(210, 0, 2048)
+	self.nextTetrominoEntity:animateTo(78, 0, 2048)
 
 	self.fsm = FSM(gameStatePlay)
 end
@@ -187,7 +314,7 @@ function gameState:removeLine(idx)
 			self.grid[j * 10 + i] = self.grid[(j - 1) * 10 + i]
 		end
 
-		self.lineOffset[j] = self.lineOffset[j] - 8
+		self.gridEntity.lineOffset[j] = self.gridEntity.lineOffset[j] - 8
 	end
 
 	-- new blank line at top
@@ -257,14 +384,17 @@ function gameState:moveTetrominoDown()
 	return bottom
 end
 
-function gameState:update(dt)
+-- update tetromino
+function gameState:updateTetromino(dt)
 	-- move tetromino
 	local bottom = false
 	if self.fall then
 		-- if falling, move it until we reach the bottom
 		local s = 2048 * dt
-		self.tetromino.display_y = self.tetromino.display_y + math.max(-s, math.min(s, self.fall * 8 - self.tetromino.display_y))
-		self.tetromino.y = math.floor(self.tetromino.display_y / 8)
+		local _y = self.currentTetrominoEntity.y + math.max(-s, math.min(s, self.fall * 8 - self.currentTetrominoEntity.y))
+		self.tetromino.y = math.floor(_y / 8)
+
+		self.currentTetrominoEntity:moveTo(self.currentTetrominoEntity.x, _y)
 
 		bottom = not self:canMoveDown()
 	else
@@ -278,10 +408,8 @@ function gameState:update(dt)
 			self.timer = 0
 		end
 
-		-- updated tetromino displayed position
-		local s = 256 * dt
-		self.tetromino.display_x = self.tetromino.display_x + math.max(-s, math.min(s, (self.tetromino.x * 8) - self.tetromino.display_x))
-		self.tetromino.display_y = self.tetromino.display_y + math.max(-s, math.min(s, (self.tetromino.y * 8) - self.tetromino.display_y))
+		self.currentTetrominoEntity:animateTo(self.tetromino.x * 8, self.tetromino.y * 8, 256)
+		self.currentTetrominoEntity.orientation = self.tetromino.orientation
 	end
 
 	-- if the tetromino reach the end of the grid
@@ -295,6 +423,10 @@ function gameState:update(dt)
 		-- generate a new tetromino
 		self:generateTetromino(self.nextTetromino)
 		self.nextTetromino = love.math.random(7) - 1
+		self.nextTetrominoEntity.index = self.nextTetromino
+		self.currentTetrominoEntity.index = self.tetromino.idx
+		self.currentTetrominoEntity.orientation = self.tetromino.orientation
+		self.currentTetrominoEntity:moveTo(self.tetromino.x * 8, self.tetromino.y * 8)
 
 		-- reset timer
 		self.timer = 0
@@ -312,27 +444,12 @@ function gameState:update(dt)
 	-- update line animation
 	for i = 0, 19 do
 		local s = 256 * dt
-		self.lineOffset[i] = self.lineOffset[i] + math.max(-s, math.min(s, -self.lineOffset[i])) -- to 0
-	end
-
-	-- color blink timer
-	self.blinkColorTimer = self.blinkColorTimer + dt * 4096
-	if self.blinkColorTimer > 512 then
-		self.blinkColorTimer = self.blinkColorTimer - 512
+		self.gridEntity.lineOffset[i] = self.gridEntity.lineOffset[i] + math.max(-s, math.min(s, -self.gridEntity.lineOffset[i])) -- to 0
 	end
 end
 
-function gameState:drawTetromino(idx, orient, gx, gy)
-	local tetromino = tetrominos[idx][orient]
-
-	for y = 0,3 do
-		for x = 0,3 do
-			local tile = tetromino[y * 4 + x + 1]
-			if tile ~= 0 then
-				love.graphics.draw(self.tileImage, self.tileQuad[idx], gx + x * 8, gy + y * 8)
-			end
-		end
-	end	
+function gameState:update(dt)
+	self.fsm:update(dt)
 end
 
 function gameState:drawNextTetromino(x, y)
@@ -374,113 +491,6 @@ function gameState:drawNextTetromino(x, y)
 	love.graphics.printf("Next", x+1, y+1, 32, "right")	
 	love.graphics.setColor(255, 255, 255, 255)
 	love.graphics.printf("Next", x, y, 32, "right")	
-end
-
-function gameState:draw()
-	-- draw background
-	love.graphics.draw(self.background)
-
-	-- draw the grid
-	love.graphics.push()
-	love.graphics.translate(120, 10)
-
-	-- draw a simple frame
-	love.graphics.setColor(0, 0, 0, 128)
-	love.graphics.polygon("fill", 0, 0, 80, 0, 80, 160, 0, 160)
-	love.graphics.setColor(255, 255, 255, 255)
-
-	-- draw the grid
-	for y = 0,19 do
-		for x = 0,9 do
-			local tile = self.grid[y * 10 + x]
-			if tile ~= -1 then
-				local offset = self.lineOffset[y]
-				love.graphics.draw(self.tileImage, self.tileQuad[tile], x * 8, y * 8 + offset)
-			end
-		end
-	end	
-
-	-- draw tetromino
-	self:drawTetromino(self.tetromino.idx, self.tetromino.orientation, self.tetromino.display_x, self.tetromino.display_y)
-
-	love.graphics.pop()
-
-	-- draw score
-	love.graphics.setFont(gameState.scoreFont)
-	love.graphics.setColor(0, 0, 0, 255)
-	love.graphics.printf(self.score, 211, 41, 80, "left")
-	love.graphics.printf(self.lineCount, 211, 71, 80, "left")
-	love.graphics.setColor(255, 255, 255, 255)
-	love.graphics.printf(self.score, 210, 40, 80, "left")
-	love.graphics.printf(self.lineCount, 210, 70, 80, "left")
-
-	-- draw game status
-	love.graphics.setFont(gameFont)
-	love.graphics.setColor(0, 0, 0, 255)
-	love.graphics.printf("Level " .. self.level, 211, 11, 80, "left")		
-	love.graphics.printf("Score", 211, 31, 80, "left")	
-	love.graphics.printf("Lines", 211, 61, 80, "left")
-	love.graphics.setColor(255, 255, 255, 255)
-	love.graphics.printf("Level " .. self.level, 211, 10, 80, "left")		
-	love.graphics.printf("Score", 210, 30, 80, "left")
-	love.graphics.printf("Lines", 210, 60, 80, "left")
-
-	-- print combo
-	if self.combo > 1 then
-		local green = self.blinkColorTimer
-		if green > 255 then
-			green = 511 - green
-		end
-
-		love.graphics.setColor(255, green, 0, 255)
-		love.graphics.print(string.format("X%d", self.combo), 260, 30)
-	end
-
-
-	-- next tetromino
-	self:drawNextTetromino(110-32,10)
-end
-
-function gameState:keypressed(key, scancode, isrepeat)
-	if key == "kp5" and not self.fall then
-		local newOrient = (self.tetromino.orientation + 1) % 4
-		if self:canRotateTo(newOrient) then
-			self.tetromino.orientation = newOrient
-			self.rotateSound:play()
-		end
-	end
-
-	if key == "kp4" and self:canMoveLeft() and not self.fall then
-		self.tetromino.x = self.tetromino.x - 1
-		self.moveSound:play()
-	end
-
-	if key == "kp6" and self:canMoveRight() and not self.fall then
-		self.tetromino.x = self.tetromino.x + 1
-		self.moveSound:play()
-	end
-
-	if key == "kp2" then
-		-- make the tetromino fall
-		-- compute the y position
-		local y = self.tetromino.y + 1
-		while not self:collideWithGrid(tetrominos[self.tetromino.idx][self.tetromino.orientation], self.tetromino.x,  y) do
-			y = y + 1
-		end
-
-		print(y)
-
-		self.fall = y - 1
-		self.fallSound:play()
-	end
-
-	if key == "kp+" then
-		self.level = math.min(self.level + 1, 10)
-	end
-
-	if key == "kp-" then
-		self.level = math.max(0, self.level - 1)
-	end
 end
 
 return gameState
