@@ -2,11 +2,12 @@ tetrominos = require "tetrominos"
 
 local gameStatePlay = {}
 function gameStatePlay:enter()
+	game:fadeIn()
 end
 
 function gameStatePlay:update(dt)
 	-- check input
-	if PlayerControl.player1Control:testTrigger("attack") and not gameState.fall then
+	if PlayerControl.player1Control:testTrigger("use") and not gameState.fall then
 		local newOrient = (gameState.tetromino.orientation + 1) % 4
 		if gameState:canRotateTo(newOrient) then
 			gameState.tetromino.orientation = newOrient
@@ -27,7 +28,7 @@ function gameStatePlay:update(dt)
 		gameState.moveSound:play()
 	end
 
-	if PlayerControl.player1Control:testTrigger("down") then
+	if PlayerControl.player1Control:testTrigger("attack") then
 		-- make the tetromino fall
 		-- compute the y position
 		local y = gameState.tetromino.y + 1
@@ -49,34 +50,32 @@ end
 function gameStatePlay:exit()
 end
 
+function gameOverThread()
+	gameState.gameOverText:animateTo(0, 85, 2048)
 
-local gameStateGameOver = {}
-function gameStateGameOver:enter()
-	gameState.gridEntity:removeChild(gameState.currentTetrominoEntity)
-
-	self.timer = 0
-	self.currentLine = 0
-
-	for y = 0,19 do
-	end
-end
-
-function gameStateGameOver:update(dt)
-	self.timer = self.timer + dt
-
-	if self.timer > 0.01 and self.currentLine < 20 then
-		self.timer = self.timer - 0.01
-
-		-- fill line
+	for y = 19,0, -1 do 
 		for x = 0,9 do
-			gameState.grid[(19 - self.currentLine) * 10 + x] = 7
+			gameState.grid[y * 10 + x] = 7
 		end
 
-		self.currentLine = self.currentLine + 1
+		wait(0.016)
 	end
+
+	wait(1)
+	game:fadeOut()
+	wait(0.3)
+	game.fsm:changeState(menuState)
 end
 
-function gameStateGameOver:exit()
+function gameReadyThread()
+	game:fadeIn()
+	wait(0.2)
+	gameState.gameReadyText:animateTo(0, 85, 2048)
+	wait(1)
+	gameState.gameReadyText:animateTo(-640, 85, 2048)	
+	wait(0.2)
+
+	gameState.fsm:changeState(gameStatePlay)
 end
 
 TetrominoEntity = {}
@@ -170,16 +169,16 @@ gameState.scoreFont = love.graphics.newImageFont("Gfx/score_font.png","012345678
 gameState.scoreFont:setFilter("nearest", "nearest")
 
 gameState.levels = {
-					{1.0, 10},
-					{0.7, 20},
-					{0.5, 40},
-					{0.42, 80},
-					{0.35, 100},
-					{0.3, 120},
-					{0.2, 140},
-					{0.12, 160},
-					{0.08, 180},
-					{0.05, 200}
+					{2.0, 100}, -- 1
+					{1.5, 200}, -- 2
+					{1.0, 300}, -- 3
+					{0.8, 400}, -- 4
+					{0.7, 500}, -- 5
+					{0.6, 600}, -- 6
+					{0.3, 700}, -- 7
+					{0.2, 800}, -- 8 
+					{0.10, 900}, -- 9
+					{0.075, 1000} -- 10
 }
 
 -- create tiles quad
@@ -241,7 +240,22 @@ function gameState:enter()
 	self.nextTetrominoPanel:animateTo(78, 10, 2048)
 	self.gridEntity:animateTo(120, 10, 2048)
 
-	self.fsm = FSM(gameStatePlay)
+	self.gameReadyText = Text.new("Get Ready!", 640, 85, 320, "center")
+	game.scene:addChild(self.gameReadyText)
+
+	self.gameOverText = Text.new("Game Over", 640, 85, 320, "center")
+	game.scene:addChild(self.gameOverText)
+
+	self.fsm = FSM(ThreadState.new(gameReadyThread))
+end
+
+function gameState:exit()
+	-- clean game scene
+	game.scene:removeChild(self.scorePanel)
+	game.scene:removeChild(self.nextTetrominoPanel)
+	game.scene:removeChild(self.gridEntity)
+	game.scene:removeChild(self.gameReadyText)	
+	game.scene:removeChild(self.gameOverText)
 end
 
 function gameState:generateTetromino(idx) 
@@ -378,7 +392,7 @@ function gameState:updateGrid()
 		local levelUp = false
 		if self.level < 10 then
 			-- increase level
-			if self.levels[self.level][2] < self.score then
+			if self.levels[self.level][2] <= self.score then
 				self.level = self.level + 1
 				levelUp = true
 			end
@@ -396,6 +410,10 @@ function gameState:updateGrid()
 	end
 
 	self.lineCount = self.lineCount + #lines
+
+	self.scoreText.text = self.score
+	self.linesText.text = self.lineCount
+	self.levelText.text = "Level " .. self.level
 end
 
 function gameState:moveTetrominoDown()
@@ -465,7 +483,7 @@ function gameState:updateTetromino(dt)
 		-- are we stuck?
 		if self:collideWithGrid(tetrominos[self.tetromino.idx][self.tetromino.orientation], self.tetromino.x, self.tetromino.y) then
 			-- Game over!
-			self.fsm:changeState(gameStateGameOver)
+			self.fsm:changeState(ThreadState.new(gameOverThread))
 		end
 	end
 

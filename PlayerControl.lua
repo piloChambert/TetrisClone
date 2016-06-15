@@ -13,6 +13,7 @@ function PlayerControl.new(eventTable, joystick)
 						jump	= 	{"z", 		"a", 		nil, 		nil},
 						attack 	= 	{"q", 		"x", 		nil,		nil},
 						defend 	= 	{"d", 		"b", 		nil, 		nil},
+						use 	= 	{"s", 		"a", 		nil, 		nil},						
 						back 	=	{"escape",	"back",		nil, 		nil},
 						start 	=	{"return",	"start", 	nil, 		nil}}
 	else
@@ -112,6 +113,7 @@ player1Event = { 	left 	= 	{"left", 	"dpleft", 	"leftx", 	true},
 					jump	= 	{"z", 		"a", 		nil, 		nil},
 					attack 	= 	{"q", 		"x", 		nil,		nil},
 					defend 	= 	{"d", 		"b", 		nil, 		nil},
+					use 	= 	{"s", 		"a", 		nil, 		nil},
 					back 	=	{"escape",	"back",		nil, 		nil},
 					start 	=	{"return",	"start", 	nil, 		nil}}
 
@@ -128,6 +130,7 @@ player2Event = { 	left 	= 	{"j",		"dpleft", 	"leftx", 	true},
 					jump	= 	{"r", 		"a", 		nil, 		nil},
 					attack 	= 	{"t", 		"x", 		nil,		nil},
 					defend 	= 	{"y", 		"b", 		nil, 		nil},
+					use 	= 	{"h", 		"a", 		nil, 		nil},
 					back 	=	{"escape",	"back",		nil, 		nil},
 					start 	=	{"return",	"start", 	nil, 		nil}}
 

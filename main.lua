@@ -12,15 +12,21 @@ function mainMenuState:enter()
 	menuState.highscoresButton.active = self.idx == 1	
 
 	menuState.mainMenu:animateTo(0, 0, 2048)
+	game:fadeIn()
 end
 
 function mainMenuState:update(dt)
 	if PlayerControl.player1Control:testTrigger("left") and self.idx > 0 then
 		self.idx = 0
+		game.menuChangeSound:stop()
+		game.menuChangeSound:play()
 	end
 
 	if PlayerControl.player1Control:testTrigger("right") and self.idx < 1 then
 		self.idx = 1
+
+		game.menuChangeSound:stop()
+		game.menuChangeSound:play()
 	end
 
 	if PlayerControl.player1Control:testTrigger("start") then
@@ -31,6 +37,9 @@ function mainMenuState:update(dt)
 		else
 			menuState.fsm:changeState(highscoreMenuState)
 		end
+
+		game.menuValidSound:stop()
+		game.menuValidSound:play()
 	end
 
 	menuState.newgameButton.active = self.idx == 0
@@ -51,20 +60,32 @@ end
 function gameModeMenuState:update(dt)
 	if PlayerControl.player1Control:testTrigger("left") and self.idx > 0 then
 		self.idx = 0
+
+		game.menuChangeSound:stop()
+		game.menuChangeSound:play()
 	end
 
 	if PlayerControl.player1Control:testTrigger("right") and self.idx < 1 then
 		self.idx = 1
+
+		game.menuChangeSound:stop()
+		game.menuChangeSound:play()
 	end
 
 	if PlayerControl.player1Control:testTrigger("start") then
 		menuState.gameModeMenu:animateTo(-640, 0, 2048)
 		menuState.fsm:changeState(levelMenuState)
+
+		game.menuValidSound:stop()
+		game.menuValidSound:play()
 	end
 
 	if PlayerControl.player1Control:testTrigger("back") then
 		menuState.gameModeMenu:animateTo(640, 0, 2048)
 		menuState.fsm:changeState(mainMenuState)
+
+		game.menuCancelSound:stop()
+		game.menuCancelSound:play()
 	end
 
 	menuState.classicButton.active = self.idx == 0
@@ -86,20 +107,33 @@ end
 function levelMenuState:update(dt)
 	if PlayerControl.player1Control:testTrigger("left") and self.idx > 0 then
 		self.idx = self.idx - 1
+
+		game.menuChangeSound:stop()
+		game.menuChangeSound:play()
 	end
 
 	if PlayerControl.player1Control:testTrigger("right") and self.idx < 9 then
 		self.idx = self.idx + 1
+
+		game.menuChangeSound:stop()
+		game.menuChangeSound:play()
 	end
 
 	if PlayerControl.player1Control:testTrigger("start") then
 		menuState.levelMenu:animateTo(-640, 0, 2048)
-		game.fsm:changeState(gameState)
+		game:fadeOut()
+		menuState.fsm:changeState(ThreadState.new(startGameThread))
+
+		game.menuValidSound:stop()
+		game.menuValidSound:play()
 	end
 
 	if PlayerControl.player1Control:testTrigger("back") then
 		menuState.levelMenu:animateTo(640, 0, 2048)
 		menuState.fsm:changeState(gameModeMenuState)
+
+		game.menuCancelSound:stop()
+		game.menuCancelSound:play()
 	end
 
 	for i = 0, 9 do
@@ -121,20 +155,34 @@ function highscoreMenuState:update(dt)
 		menuState.highscoreMenu:animateTo(640, 0, 2048)
 		menuState.logo:animateTo(89, 20, 1024)
 		menuState.fsm:changeState(mainMenuState)
+
+		game.menuCancelSound:stop()
+		game.menuCancelSound:play()
 	end
 
 	if PlayerControl.player1Control:testTrigger("back") then
 		menuState.highscoreMenu:animateTo(640, 0, 2048)
 		menuState.logo:animateTo(89, 20, 1024)
 		menuState.fsm:changeState(mainMenuState)
+
+		game.menuCancelSound:stop()
+		game.menuCancelSound:play()
 	end
 end
 
 function highscoreMenuState:exit()
 end
 
+function startGameThread()
+	game:fadeOut()
+	wait(0.5)
+	game.fsm:changeState(gameState)
+end
+
 menuState = {}
 function menuState:enter()
+	print("Menu")
+
 	-- logo
 	self.logo = Sprite.new(love.graphics.newImage("Gfx/logo.png"), nil, 89, -100)
 	self.logo:animateTo(89, 20, 1024)
@@ -201,6 +249,10 @@ function menuState:exit()
 end
 
 game = {}
+game.menuChangeSound = love.audio.newSource("Sounds/menu_change.wav", "static")
+game.menuValidSound = love.audio.newSource("Sounds/menu_valid.wav", "static")
+game.menuCancelSound = love.audio.newSource("Sounds/menu_cancel.wav", "static")
+
 function game:load()
 	-- background
 	self.backgroundImage = love.graphics.newImage("Gfx/menu_background.png")
@@ -211,8 +263,6 @@ function game:load()
 
 	self.scene = Entity.new()
 	self.fsm = FSM.new(menuState)
-	self:fadeIn()
-
 end
 
 -- fade the screen in the next frames
@@ -230,7 +280,7 @@ function game:update(dt)
 	self.scene:update(dt)
 
 	-- update fade
-	local fadeSpeed = 512 * dt
+	local fadeSpeed = 1024 * dt
 	self.fadeValue = self.fadeValue + math.max(math.min(self.fadeDest - self.fadeValue, fadeSpeed), -fadeSpeed)
 end
 

@@ -9,6 +9,37 @@ end
 function DummyState:update(dt)
 end
 
+-- for coroutine
+function wait(t)
+	local startTime = love.timer.getTime()
+	local endTime = startTime + t
+
+	while love.timer.getTime() < endTime do
+		coroutine.yield()
+	end
+end
+
+ThreadState = {}
+ThreadState.__index = ThreadState
+
+function ThreadState:enter()
+end
+
+function ThreadState:exit()
+end
+
+function ThreadState:update(dt)
+	coroutine.resume(self.co)
+end
+
+function ThreadState.new(func)
+	-- create coroutine
+	local self = setmetatable({}, ThreadState)
+	self.co = coroutine.create(func)
+
+	return self
+end
+
 local FSM = { currentState = nil }
 FSM.__index = FSM
 
