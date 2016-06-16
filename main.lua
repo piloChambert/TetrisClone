@@ -13,33 +13,39 @@ function mainMenuState:enter()
 
 	menuState.mainMenu:animateTo(0, 0, 2048)
 	game:fadeIn()
+
+	self.timer = 0
 end
 
 function mainMenuState:update(dt)
-	if PlayerControl.player1Control:testTrigger("left") and self.idx > 0 then
-		self.idx = 0
-		game.menuChangeSound:stop()
-		game.menuChangeSound:play()
-	end
-
-	if PlayerControl.player1Control:testTrigger("right") and self.idx < 1 then
-		self.idx = 1
-
-		game.menuChangeSound:stop()
-		game.menuChangeSound:play()
-	end
-
-	if PlayerControl.player1Control:testTrigger("start") then
-		menuState.mainMenu:animateTo(-640, 0, 2048)
-
-		if self.idx == 0 then
-			menuState.fsm:changeState(gameModeMenuState)
-		else
-			menuState.fsm:changeState(highscoreMenuState)
+	-- doesn't allow input while animating
+	self.timer = self.timer + dt
+	if self.timer > 0.3 then
+		if PlayerControl.player1Control:testTrigger("left") and self.idx > 0 then
+			self.idx = 0
+			game.menuChangeSound:stop()
+			game.menuChangeSound:play()
 		end
 
-		game.menuValidSound:stop()
-		game.menuValidSound:play()
+		if PlayerControl.player1Control:testTrigger("right") and self.idx < 1 then
+			self.idx = 1
+
+			game.menuChangeSound:stop()
+			game.menuChangeSound:play()
+		end
+
+		if PlayerControl.player1Control:testTrigger("menu_valid") then
+			menuState.mainMenu:animateTo(-640, 0, 2048)
+
+			if self.idx == 0 then
+				menuState.fsm:changeState(gameModeMenuState)
+			else
+				menuState.fsm:changeState(highscoreMenuState)
+			end
+
+			game.menuValidSound:stop()
+			game.menuValidSound:play()
+		end
 	end
 
 	menuState.newgameButton.active = self.idx == 0
@@ -55,37 +61,43 @@ function gameModeMenuState:enter()
 	menuState.challengeButton.active = self.idx == 1	
 
 	menuState.gameModeMenu:animateTo(0, 0, 2048)
+
+	self.timer = 0
 end
 
 function gameModeMenuState:update(dt)
-	if PlayerControl.player1Control:testTrigger("left") and self.idx > 0 then
-		self.idx = 0
+	-- doesn't allow input while animating
+	self.timer = self.timer + dt
+	if self.timer > 0.3 then
+		if PlayerControl.player1Control:testTrigger("left") and self.idx > 0 then
+			self.idx = 0
 
-		game.menuChangeSound:stop()
-		game.menuChangeSound:play()
-	end
+			game.menuChangeSound:stop()
+			game.menuChangeSound:play()
+		end
 
-	if PlayerControl.player1Control:testTrigger("right") and self.idx < 1 then
-		self.idx = 1
+		if PlayerControl.player1Control:testTrigger("right") and self.idx < 1 then
+			self.idx = 1
 
-		game.menuChangeSound:stop()
-		game.menuChangeSound:play()
-	end
+			game.menuChangeSound:stop()
+			game.menuChangeSound:play()
+		end
 
-	if PlayerControl.player1Control:testTrigger("start") then
-		menuState.gameModeMenu:animateTo(-640, 0, 2048)
-		menuState.fsm:changeState(levelMenuState)
+		if PlayerControl.player1Control:testTrigger("menu_valid") then
+			menuState.gameModeMenu:animateTo(-640, 0, 2048)
+			menuState.fsm:changeState(levelMenuState)
 
-		game.menuValidSound:stop()
-		game.menuValidSound:play()
-	end
+			game.menuValidSound:stop()
+			game.menuValidSound:play()
+		end
 
-	if PlayerControl.player1Control:testTrigger("back") then
-		menuState.gameModeMenu:animateTo(640, 0, 2048)
-		menuState.fsm:changeState(mainMenuState)
+		if PlayerControl.player1Control:testTrigger("menu_back") then
+			menuState.gameModeMenu:animateTo(640, 0, 2048)
+			menuState.fsm:changeState(mainMenuState)
 
-		game.menuCancelSound:stop()
-		game.menuCancelSound:play()
+			game.menuCancelSound:stop()
+			game.menuCancelSound:play()
+		end
 	end
 
 	menuState.classicButton.active = self.idx == 0
@@ -102,38 +114,44 @@ function levelMenuState:enter()
 	end
 
 	menuState.levelMenu:animateTo(0, 0, 2048)
+
+	self.timer = 0
 end
 
 function levelMenuState:update(dt)
-	if PlayerControl.player1Control:testTrigger("left") and self.idx > 0 then
-		self.idx = self.idx - 1
+	-- doesn't allow input while animating
+	self.timer = self.timer + dt
+	if self.timer > 0.3 then
+		if PlayerControl.player1Control:testTrigger("left") and self.idx > 0 then
+			self.idx = self.idx - 1
 
-		game.menuChangeSound:stop()
-		game.menuChangeSound:play()
-	end
+			game.menuChangeSound:stop()
+			game.menuChangeSound:play()
+		end
 
-	if PlayerControl.player1Control:testTrigger("right") and self.idx < 9 then
-		self.idx = self.idx + 1
+		if PlayerControl.player1Control:testTrigger("right") and self.idx < 9 then
+			self.idx = self.idx + 1
 
-		game.menuChangeSound:stop()
-		game.menuChangeSound:play()
-	end
+			game.menuChangeSound:stop()
+			game.menuChangeSound:play()
+		end
 
-	if PlayerControl.player1Control:testTrigger("start") then
-		menuState.levelMenu:animateTo(-640, 0, 2048)
-		game:fadeOut()
-		menuState.fsm:changeState(ThreadState.new(startGameThread))
+		if PlayerControl.player1Control:testTrigger("menu_valid") then
+			menuState.levelMenu:animateTo(-640, 0, 2048)
+			game:fadeOut()
+			menuState.fsm:changeState(ThreadState.new(startGameThread))
 
-		game.menuValidSound:stop()
-		game.menuValidSound:play()
-	end
+			game.menuValidSound:stop()
+			game.menuValidSound:play()
+		end
 
-	if PlayerControl.player1Control:testTrigger("back") then
-		menuState.levelMenu:animateTo(640, 0, 2048)
-		menuState.fsm:changeState(gameModeMenuState)
+		if PlayerControl.player1Control:testTrigger("menu_back") then
+			menuState.levelMenu:animateTo(640, 0, 2048)
+			menuState.fsm:changeState(gameModeMenuState)
 
-		game.menuCancelSound:stop()
-		game.menuCancelSound:play()
+			game.menuCancelSound:stop()
+			game.menuCancelSound:play()
+		end
 	end
 
 	for i = 0, 9 do
@@ -151,7 +169,7 @@ function highscoreMenuState:enter()
 end
 
 function highscoreMenuState:update(dt)
-	if PlayerControl.player1Control:testTrigger("start") then
+	if PlayerControl.player1Control:testTrigger("menu_valid") then
 		menuState.highscoreMenu:animateTo(640, 0, 2048)
 		menuState.logo:animateTo(89, 20, 1024)
 		menuState.fsm:changeState(mainMenuState)
@@ -160,7 +178,7 @@ function highscoreMenuState:update(dt)
 		game.menuCancelSound:play()
 	end
 
-	if PlayerControl.player1Control:testTrigger("back") then
+	if PlayerControl.player1Control:testTrigger("menu_back") then
 		menuState.highscoreMenu:animateTo(640, 0, 2048)
 		menuState.logo:animateTo(89, 20, 1024)
 		menuState.fsm:changeState(mainMenuState)

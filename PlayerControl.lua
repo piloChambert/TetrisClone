@@ -115,7 +115,9 @@ player1Event = { 	left 	= 	{"left", 	"dpleft", 	"leftx", 	true},
 					defend 	= 	{"d", 		"b", 		nil, 		nil},
 					use 	= 	{"s", 		"a", 		nil, 		nil},
 					back 	=	{"escape",	"back",		nil, 		nil},
-					start 	=	{"return",	"start", 	nil, 		nil}}
+					start 	=	{"return",	"start", 	nil, 		nil},
+					menu_valid = {"return", "a",		nil,		nil},
+					menu_back = {"escape", "b",			nil, 		nil}}
 
 if #joysticks > 1 then
 	player1Joystick = joysticks[2]

@@ -51,6 +51,15 @@ function gameStatePlay:exit()
 end
 
 function gameOverThread()
+	-- copy last tetromino
+	gameState:copyTetromino()
+
+	-- and don't display it
+	gameState.gridEntity:removeChild(gameState.currentTetrominoEntity)
+
+	-- stop music
+	gameState.music:stop()
+
 	gameState.gameOverText:animateTo(0, 85, 2048)
 
 	for y = 19,0, -1 do 
@@ -500,47 +509,6 @@ end
 
 function gameState:update(dt)
 	self.fsm:update(dt)
-end
-
-function gameState:drawNextTetromino(x, y)
-	love.graphics.setColor(255, 255, 255, 255)
-
-	local offset = {0, 0}
-	local n = self.nextTetromino
-	if n == 0 then
-		offset = {0, 4}
-	elseif n == 1 then
-		offset = {4, 0}
-	elseif n == 2 then
-		offset = {0, 0}
-	elseif n == 3 then
-		offset = {4, 0}
-	elseif n == 4 then
-		offset = {4, 0}
-	elseif n == 5 then 
-		offset = {4, 0}
-	elseif n == 6 then
-		offset = {4, 0}
-	end
-
-	local _x = x + offset[1]
-	local _y = y + offset[2] + 10 
-
-	-- outline
-	love.graphics.setColor(0, 0, 0, 255)
-	for j = -1, 1 do
-		for i = -1, 1 do
-			self:drawTetromino(self.nextTetromino, 0, _x + i, _y + j)	
-		end
-	end
-
-	love.graphics.setColor(255, 255, 255, 255)
-	self:drawTetromino(self.nextTetromino, 0, _x, _y)
-
-	love.graphics.setColor(0, 0, 0, 255)
-	love.graphics.printf("Next", x+1, y+1, 32, "right")	
-	love.graphics.setColor(255, 255, 255, 255)
-	love.graphics.printf("Next", x, y, 32, "right")	
 end
 
 return gameState
