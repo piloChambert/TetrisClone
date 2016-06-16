@@ -29,7 +29,13 @@ function ThreadState:exit()
 end
 
 function ThreadState:update(dt)
-	coroutine.resume(self.co)
+
+	local r, error = coroutine.resume(self.co)
+
+	if not r then
+		love.event.quit()
+		print(error)
+	end
 end
 
 function ThreadState.new(func)
