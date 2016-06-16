@@ -75,6 +75,7 @@ function gameReadyThread()
 	gameState.gameReadyText:animateTo(-640, 85, 2048)	
 	wait(0.2)
 
+	gameState.music:play()
 	gameState.fsm:changeState(gameStatePlay)
 end
 
@@ -167,6 +168,9 @@ gameState.levelUpSound = love.audio.newSource("Sounds/level_up.wav", "static")
 
 gameState.scoreFont = love.graphics.newImageFont("Gfx/score_font.png","0123456789")
 gameState.scoreFont:setFilter("nearest", "nearest")
+
+gameState.music = love.audio.newSource("Music/main_theme.xm", "stream")
+gameState.music:setLooping(true)
 
 gameState.levels = {
 					{2.0, 100}, -- 1

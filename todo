@@ -4,6 +4,7 @@
 - game over sound
 - remove input when menu transition is not over
 - add score input menu
+- keyboard/joystick input (in menu)
 
 * add game over text
 * tweak transition
