@@ -81,12 +81,52 @@ function gameOverThread()
 end
 
 function gameReadyThread()
+	-- setup text
+	gameState.gameReadyText:moveTo(640, 85)	
+	gameState.gameReadyText.text = "Get Ready!"
+
+	-- fade in
 	game:fadeIn()
+
+	-- wait for fade
 	wait(0.2)
+
+	-- show "get ready"
 	gameState.gameReadyText:animateTo(0, 85, 2048)
 	wait(1)
+
+	-- hide get ready
 	gameState.gameReadyText:animateTo(-640, 85, 2048)	
-	wait(0.2)
+	wait(0.4)
+
+	-- show 1
+	gameState.gameReadyText:moveTo(640, 85)	
+	gameState.gameReadyText.text = "1"
+	gameState.gameReadyText:animateTo(0, 85, 2048)
+	wait(0.4)
+	gameState.ready1Sound:play()
+	wait(0.4)
+	gameState.gameReadyText:animateTo(-640, 85, 2048)	
+
+	-- show 2
+	gameState.gameReadyText:moveTo(640, 85)	
+	gameState.gameReadyText.text = "2"
+	gameState.gameReadyText:animateTo(0, 85, 2048)
+	wait(0.4)
+	gameState.ready1Sound:play()
+	wait(0.4)
+	gameState.gameReadyText:animateTo(-640, 85, 2048)	
+
+	-- show 3
+	gameState.gameReadyText:moveTo(640, 85)	
+	gameState.gameReadyText.text = "3"
+	gameState.gameReadyText:animateTo(0, 85, 2048)
+	wait(0.4)
+	gameState.ready2Sound:play()
+	wait(0.4)
+	gameState.gameReadyText:animateTo(-640, 85, 2048)	
+
+
 
 	gameState.music:play()
 	gameState.fsm:changeState(gameStatePlay)
@@ -179,6 +219,9 @@ gameState.fallSound = love.audio.newSource("Sounds/fall.wav", "static")
 gameState.lineSound = love.audio.newSource("Sounds/line.wav", "static")
 gameState.levelUpSound = love.audio.newSource("Sounds/level_up.wav", "static")
 
+gameState.ready1Sound = love.audio.newSource("Sounds/ready1.wav", "static")
+gameState.ready2Sound = love.audio.newSource("Sounds/ready2.wav", "static")
+
 gameState.scoreFont = love.graphics.newImageFont("Gfx/score_font.png","0123456789")
 gameState.scoreFont:setFilter("nearest", "nearest")
 
@@ -219,6 +262,19 @@ function gameState:enter()
 		end
 	end
 
+	if self.mode == "challenge" then
+		-- fill with some "noise"
+		for y = 0, 3 + self.level / 4 do
+			for x = 0,9 do
+				local r = love.math.random()
+
+				if r < 0.25 then
+					self.grid[(19 - y) * 10 + x] = love.math.random(7)
+				end
+			end
+		end
+	end
+
 	self:generateTetromino(love.math.random(7) - 1)
 	self.nextTetromino = love.math.random(7) - 1
 
@@ -248,16 +304,18 @@ function gameState:enter()
 	self.nextTetrominoEntity = TetrominoEntity.new(0, 20, self.nextTetromino, 0)
 	self.nextTetrominoPanel:addChild(self.nextTetrominoEntity)
 
+	self.gridBezel = Sprite.new(gameState.bezelImage, nil, 117, 367)
+	game.scene:addChild(self.gridBezel)
 
-	self.gridEntity = TetrominoGrid.new(self.grid, 120, 370)
-	game.scene:addChild(self.gridEntity)
+	self.gridEntity = TetrominoGrid.new(self.grid, 3, 3)
+	self.gridBezel:addChild(self.gridEntity)
 
 	self.currentTetrominoEntity = TetrominoEntity.new(self.tetromino.x * 8, self.tetromino.y * 8, self.tetromino.idx, self.tetromino.orientation)
 	self.gridEntity:addChild(self.currentTetrominoEntity)
 
 	self.scorePanel:animateTo(210, 0, 2048)
 	self.nextTetrominoPanel:animateTo(78, 10, 2048)
-	self.gridEntity:animateTo(120, 10, 2048)
+	self.gridBezel:animateTo(117, 7, 2048)
 
 	self.gameReadyText = Text.new("Get Ready!", 640, 85, 320, "center")
 	game.scene:addChild(self.gameReadyText)
@@ -272,7 +330,7 @@ function gameState:exit()
 	-- clean game scene
 	game.scene:removeChild(self.scorePanel)
 	game.scene:removeChild(self.nextTetrominoPanel)
-	game.scene:removeChild(self.gridEntity)
+	game.scene:removeChild(self.gridBezel)
 	game.scene:removeChild(self.gameReadyText)	
 	game.scene:removeChild(self.gameOverText)
 end

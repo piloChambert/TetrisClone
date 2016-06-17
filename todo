@@ -1,8 +1,11 @@
-- start level sound
 - add score input menu
 - in game menu
 - make in game music loop?
+- highscore
+- center next tetromino
+- add bezel for score and next?
 
+* start level sound
 * fix in game music
 * game over music
 * tweak levels score and speed
