@@ -60,6 +60,10 @@ function gameOverThread()
 	-- stop music
 	gameState.music:stop()
 
+	-- play lost music
+	gameState.lostMusic:play()
+
+
 	gameState.gameOverText:animateTo(0, 85, 2048)
 
 	for y = 19,0, -1 do 
@@ -179,19 +183,23 @@ gameState.scoreFont = love.graphics.newImageFont("Gfx/score_font.png","012345678
 gameState.scoreFont:setFilter("nearest", "nearest")
 
 gameState.music = love.audio.newSource("Music/main_theme.xm", "stream")
+gameState.lostMusic = love.audio.newSource("Music/lost.xm", "stream")
+
 gameState.music:setLooping(true)
 
-gameState.levels = {
-					{2.0, 100}, -- 1
-					{1.5, 200}, -- 2
-					{1.0, 300}, -- 3
-					{0.8, 400}, -- 4
-					{0.7, 500}, -- 5
-					{0.6, 600}, -- 6
-					{0.3, 700}, -- 7
-					{0.2, 800}, -- 8 
-					{0.10, 900}, -- 9
-					{0.075, 1000} -- 10
+gameState.mode = "classic"
+gameState.level = 0
+gameState.levels = {[0] =  0.88,
+					[1] = 0.75,
+					[2] = 0.62,
+					[3] = 0.46,
+					[4] = 0.28,
+					[5] = 0.17,
+					[6] = 0.13,
+					[7] = 0.1, 
+					[8] = 0.083,
+					[9] = 0.066,
+					[10] = 0.05
 }
 
 -- create tiles quad
@@ -218,8 +226,6 @@ function gameState:enter()
 
 	self.lineCount = 0
 	self.score = 0
-	self.level = 1
-	self.combo = 1
 
 	self.fall = false -- when true, it moves the tetromino to the bottom
 
@@ -385,44 +391,36 @@ function gameState:updateGrid()
 	local score = 10
 
 	if #lines > 0 then
-		print("allo")
 		for k, idx in ipairs(lines) do
-			print(idx)
 			self:removeLine(idx)
-			print(idx)
 		end
 
-		-- incremente score
-		self.score = self.score + score * self.combo
+		self.lineCount = self.lineCount + #lines
 
-		-- extra bonus for multiple lines
-		score = score + 5
-
-		-- update combo status
-		self.combo = self.combo * 2
+		-- update score
+		local points = 40
+		if #lines == 2 then
+			points = 100
+		elseif #lines == 3 then
+			points = 300
+		elseif #lines == 4 then
+			self.score = 1200
+		end
+		self.score = self.score + points * (self.level + 1)
 
 		-- update level
 		local levelUp = false
-		if self.level < 10 then
-			-- increase level
-			if self.levels[self.level][2] <= self.score then
-				self.level = self.level + 1
-				levelUp = true
-			end
-		end
+		local newLevel = math.max(math.floor(self.lineCount / 20), self.level)
 
-		if not levelUp then
-			self.lineSound:rewind()
-			self.lineSound:play()
-		else 
+		if self.level < newLevel then
+			self.level = newLevel
 			self.levelUpSound:rewind()
 			self.levelUpSound:play()
+		else 
+			self.lineSound:rewind()
+			self.lineSound:play()
 		end
-	else
-		self.combo = 1
 	end
-
-	self.lineCount = self.lineCount + #lines
 
 	self.scoreText.text = self.score
 	self.linesText.text = self.lineCount
@@ -460,7 +458,7 @@ function gameState:updateTetromino(dt)
 		-- move the tetromino down according to timer
 		self.timer = self.timer + dt
 
-		if self.timer > self.levels[self.level][1] then
+		if self.timer > self.levels[self.level] then
 			bottom = self:moveTetrominoDown()
 
 			-- reset timer

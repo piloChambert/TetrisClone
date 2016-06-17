@@ -1,9 +1,11 @@
-- tweak levels score and speed
 - start level sound
-- game over sound
 - add score input menu
 - in game menu
+- make in game music loop?
 
+* fix in game music
+* game over music
+* tweak levels score and speed
 * MUSIC!!!
 * keyboard/joystick input (in menu)
 * remove input when menu transition is not over

@@ -87,6 +87,13 @@ function gameModeMenuState:update(dt)
 			menuState.gameModeMenu:animateTo(-640, 0, 2048)
 			menuState.fsm:changeState(levelMenuState)
 
+			-- set game mode
+			if self.idx == 0 then
+				gameState.mode = "classic"
+			else
+				gameState.mode = "challenge"
+			end
+
 			game.menuValidSound:stop()
 			game.menuValidSound:play()
 		end
@@ -109,7 +116,7 @@ end
 
 levelMenuState = { idx = 0 }
 function levelMenuState:enter()
-	for i = 0, 9 do
+	for i = 0, 10 do
 		menuState.levelButtons[i+1].active = self.idx == i
 	end
 
@@ -129,7 +136,7 @@ function levelMenuState:update(dt)
 			game.menuChangeSound:play()
 		end
 
-		if PlayerControl.player1Control:testTrigger("right") and self.idx < 9 then
+		if PlayerControl.player1Control:testTrigger("right") and self.idx < 10 then
 			self.idx = self.idx + 1
 
 			game.menuChangeSound:stop()
@@ -139,6 +146,9 @@ function levelMenuState:update(dt)
 		if PlayerControl.player1Control:testTrigger("menu_valid") then
 			menuState.levelMenu:animateTo(-640, 0, 2048)
 			game:fadeOut()
+
+			-- set level
+			gameState.level = self.idx
 			menuState.fsm:changeState(ThreadState.new(startGameThread))
 
 			game.menuValidSound:stop()
@@ -154,7 +164,7 @@ function levelMenuState:update(dt)
 		end
 	end
 
-	for i = 0, 9 do
+	for i = 0, 10 do
 		menuState.levelButtons[i+1].active = self.idx == i
 	end
 end
@@ -198,6 +208,9 @@ function startGameThread()
 end
 
 menuState = {}
+menuState.music = love.audio.newSource("Music/menu_music.xm", "stream")
+menuState.music:setLooping(true)
+
 function menuState:enter()
 	print("Menu")
 
@@ -233,11 +246,11 @@ function menuState:enter()
 	-- choose level
 	self.levelMenu = Entity.new(640, 0)
 	game.scene:addChild(self.levelMenu)
-	self.levelMenu:addChild(Text.new("Choose Level", 0, 80, 320, "center"))
+	self.levelMenu:addChild(Text.new("Choose Start Level", 0, 80, 320, "center"))
 
 	self.levelButtons = {}
-	for i = 0, 9 do 
-		local btn = Button.new(i + 1, 62 + i * 20, 100, true)
+	for i = 0, 10 do 
+		local btn = Button.new(i, 52 + i * 20, 100, true)
 		self.levelMenu:addChild(btn)
 		table.insert(self.levelButtons, btn)
 	end
@@ -249,6 +262,8 @@ function menuState:enter()
 	game.scene:addChild(self.highscoreMenu)
 	self.highscoreMenu:addChild(Sprite.new(love.graphics.newImage("Gfx/logo_small.png"), nil, 126, 5))
 	self.highscoreMenu:addChild(Text.new("Highscores", 0, 25, 320, "center"))
+
+	self.music:play()
 
 	self.fsm = FSM.new(mainMenuState)
 end
@@ -264,6 +279,8 @@ function menuState:exit()
 	game.scene:removeChild(self.gameModeMenu)
 	game.scene:removeChild(self.levelMenu)
 	game.scene:removeChild(self.highscoreMenu)
+
+	self.music:stop()
 end
 
 game = {}
