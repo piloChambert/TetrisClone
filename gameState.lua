@@ -50,6 +50,77 @@ end
 function gameStatePlay:exit()
 end
 
+function backToMenuThread() 
+	game:fadeOut()
+	wait(0.5)
+	game:fadeIn()
+
+	game.fsm:changeState(menuState)
+end
+
+newHighscoreState = {}
+newHighscoreState.music = love.audio.newSource("Music/highscore.xm", "stream")
+newHighscoreState.music:setLooping(true)
+
+function newHighscoreState:enter()
+	game:fadeIn()
+	newHighscoreState.music:play()
+
+	self.view = Entity.new(0, 0)
+	game.scene:addChild(self.view)
+
+	self.view:addChild(Text.new("New Highscore!", 0, 45, 320, "center"))
+	self.view:addChild(Text.new(self.highscore, 0, 55, 320, "center"))
+
+	self.view:addChild(Text.new("Enter your name", 0, 80, 320, "center"))
+	self.nameField = Text.new("", 0, 100, 320, "center")
+	self.view:addChild(self.nameField)
+
+	self.name = ""
+	self.timer = 0
+end
+
+function newHighscoreState:textinput(text)
+	self.name = self.name .. text
+end
+
+function newHighscoreState:update(dt)
+	-- blink cursor
+	self.timer = self.timer + dt
+
+	if (math.floor(self.timer * 5)) % 2 == 0 then
+		self.nameField.text = self.name .. "_"
+	else
+		self.nameField.text = self.name .. "µ"
+	end
+
+	if PlayerControl.player1Control:testTrigger("text_del") then
+		self.name = self.name:sub(1, -2)
+	end
+
+	if PlayerControl.player1Control:testTrigger("menu_valid") then
+		-- insert in score
+		table.insert(game.highscores, {name=self.name, score=self.highscore})
+
+		-- sort
+		table.sort(game.highscores, function(k1, k2) return k1.score > k2.score end )
+
+		-- remove last entry
+		table.remove(game.highscores, #game.highscores)
+
+		-- save highscore
+		love.filesystem.write("highscores.lua", serialize(game.highscores))
+
+		game.fsm:changeState(ThreadState.new(backToMenuThread))
+	end
+end
+
+function newHighscoreState:exit()
+	game:fadeOut()
+	newHighscoreState.music:stop()
+	game.scene:removeChild(self.view)
+end
+
 function gameOverThread()
 	-- copy last tetromino
 	gameState:copyTetromino()
@@ -77,7 +148,15 @@ function gameOverThread()
 	wait(1)
 	game:fadeOut()
 	wait(0.3)
-	game.fsm:changeState(menuState)
+
+	-- new highscore?
+	if gameState.score > game.highscores[10].score then
+		-- display new highscore input menu
+		newHighscoreState.highscore = gameState.score
+		game.fsm:changeState(newHighscoreState)
+	else
+		game.fsm:changeState(menuState)
+	end
 end
 
 function gameReadyThread()

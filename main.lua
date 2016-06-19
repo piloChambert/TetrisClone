@@ -1,10 +1,26 @@
 FSM = require "FSM"
 require "PlayerControl"
 require "Entity"
+serialize = require "ser"
 gameState = require "gameState"
 
-gameFont = love.graphics.newImageFont("Gfx/font.png"," !\"#$%&`()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_'abcdefghijklmnopqrstuvwxyz{|}")
-gameFont:setFilter("nearest", "nearest")
+-- screen configuration
+canvasConfiguration = {
+	width = 320, 
+	height = 180,
+	scale = 1,
+	offset = {x = 0, y = 0}
+}
+
+configuration = {
+	windowedScreenScale = 4,
+	fullscreen = false,
+	azerty = false
+}
+
+function saveTable()
+	love.filesystem.write("settings.lua", serialize(configuration))
+end
 
 mainMenuState = { idx = 0 }
 function mainMenuState:enter()
@@ -176,6 +192,35 @@ highscoreMenuState = {}
 function highscoreMenuState:enter()
 	menuState.logo:animateTo(89, -100, 1024)
 	menuState.highscoreMenu:animateTo(0, 0, 2048)
+
+	-- sort highscore
+	table.sort(game.highscores, function(k1, k2) return k1.score > k2.score end )
+
+	-- set high score
+	for i = 1, 10 do
+		local label = ""
+
+		if i == 10 then
+			label = i .. "."
+		else
+			label = " " .. i .. "."
+		end
+
+		label = label .. game.highscores[i].name
+
+		-- how many space?
+		local len = string.len(game.highscores[i].name) + string.format("%d", game.highscores[i].score):len()
+
+		local spaceCount = 15 - len
+		for s = 1, spaceCount do
+			label = label .. " "
+		end
+
+		-- and append score
+		label = label .. game.highscores[i].score
+
+		menuState.highscoresLabels[i].text = label
+	end
 end
 
 function highscoreMenuState:update(dt)
@@ -263,6 +308,14 @@ function menuState:enter()
 	self.highscoreMenu:addChild(Sprite.new(love.graphics.newImage("Gfx/logo_small.png"), nil, 126, 5))
 	self.highscoreMenu:addChild(Text.new("Highscores", 0, 25, 320, "center"))
 
+	self.highscoresLabels = {}
+	for i = 1, 10 do
+		local label = Text.new(i .. ". Name        1250", 96, 30 + i * 10)
+		table.insert(self.highscoresLabels, label)
+
+		self.highscoreMenu:addChild(label)
+	end
+
 	self.music:play()
 
 	self.fsm = FSM.new(mainMenuState)
@@ -297,6 +350,33 @@ function game:load()
 	self.fadeValue = 255
 
 	self.scene = Entity.new()
+
+	-- load highscore
+	self.highscores = { 	
+		{name = "Super", score = 15520},
+		{name = "Super", score = 12000},
+		{name = "Super", score = 10000},
+		{name = "Super", score = 8000},
+		{name = "Super", score = 6000},
+		{name = "Super", score = 4000},
+		{name = "Super", score = 3000},
+		{name = "Super", score = 2500},
+		{name = "Super", score = 2000},
+		{name = "Super", score = 0}
+	}
+
+	if love.filesystem.exists("highscores.lua") then
+		local confChunk = love.filesystem.load("highscores.lua")
+
+		local ok, result = pcall(confChunk)
+
+		if not ok then 
+			print("Error while running settings file : " .. tostring(result))
+		else
+			self.highscores = result
+		end
+	end
+
 	self.fsm = FSM.new(menuState)
 end
 
@@ -328,20 +408,6 @@ function game:draw()
 	love.graphics.polygon("fill", 0, 0, 320, 0, 320, 180, 0, 180)
 end
 
-
--- screen configuration
-canvasConfiguration = {
-	width = 320, 
-	height = 180,
-	scale = 1,
-	offset = {x = 0, y = 0}
-}
-
-configuration = {
-	windowedScreenScale = 4,
-	fullscreen = false,
-	azerty = false
-}
 
 local mainCanvas
 function setupScreen()
@@ -388,6 +454,12 @@ end
 function love.update(dt)
 	PlayerControl.player1Control:update()
 	game:update(dt)
+end
+
+function love.textinput(text)
+	if game.fsm.currentState.textinput then
+		game.fsm.currentState:textinput(text)
+	end
 end
 
 function love.draw()

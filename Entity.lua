@@ -16,6 +16,8 @@ function Entity.new(x, y)
 end
 
 function Entity:childIndex(child)
+	assert(child ~= nil, "child can't be nil!")
+
 	for k, v in ipairs(self.subItems) do
 		if v == child then
 			return k
@@ -27,6 +29,8 @@ function Entity:childIndex(child)
 end
 
 function Entity:addChild(child)
+	assert(child ~= nil, "child can't be nil!")
+
 	-- look for item index
 	local idx = self:childIndex(child)
 
@@ -37,6 +41,8 @@ function Entity:addChild(child)
 end
 
 function Entity:removeChild(child)
+	assert(child ~= nil, "child can't be nil!")
+
 	-- look for item index
 	local idx = self:childIndex(child)
 
@@ -159,6 +165,8 @@ function Text:draw(parentX, parentY)
 	local _x = self.x + parentX
 	local _y = self.y + parentY
 
+	love.graphics.setFont(gameFont)
+
 	love.graphics.setColor(0, 0, 0, 255)
 	if self.width and self.align then
 		love.graphics.printf(self.text, _x + 1, _y + 1, self.width, self.align)	
@@ -199,3 +207,6 @@ function Sprite:draw(parentX, parentY)
 
 	Entity.draw(self, parentX, parentY)
 end
+
+gameFont = love.graphics.newImageFont("Gfx/font.png"," !\"#$%&`()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_'abcdefghijklmnopqrstuvwxyz{|}~µ")
+gameFont:setFilter("nearest", "nearest")
