@@ -541,7 +541,7 @@ function gameState:updateGrid()
 		elseif #lines == 3 then
 			points = 300
 		elseif #lines == 4 then
-			self.score = 1200
+			points = 1200
 		end
 		self.score = self.score + points * (self.level + 1)
 
