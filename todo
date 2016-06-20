@@ -1,9 +1,17 @@
-- in game menu
-- make in game music loop?
-- center next tetromino
-- add bezel for score and next?
-- customize score input menu
+- option menu
 
+- key repeat when moving pieces
+- key repeat on text entry
+- center next tetromino
+
+* instruction screen
+* fix highscore alignement
+* add back button on highscore
+* add version info on main menu
+* customize score input menu
+* in game menu
+* exit button
+* make in game music loop?
 * add score input menu
 * highscore
 * start level sound

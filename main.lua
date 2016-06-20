@@ -18,9 +18,55 @@ configuration = {
 	azerty = false
 }
 
-function saveTable()
-	love.filesystem.write("settings.lua", serialize(configuration))
+exitMenu = { idx = 0}
+function exitMenu:enter()
+	self.window = Sprite.new(game.menuWindowImage, nil, 60, -360 + 40)
+	game.scene:addChild(self.window)
+
+	self.cancelButton = Button.new("Cancel", 15, 70)
+	self.exitButton = Button.new("Exit", 105, 70)
+	self.window:addChild(self.exitButton)
+	self.window:addChild(self.cancelButton)
+	self.window:addChild(Text.new("Are you sure you want to quit?", 20, 30, 160, "center"))
+
+	self.window:animateTo(60, 40, 2048)
 end
+
+function exitMenu:update(dt)
+	if PlayerControl.player1Control:testTrigger("left") and self.idx > 0 then
+		self.idx = 0
+
+		game.menuChangeSound:stop()
+		game.menuChangeSound:play()
+	end
+
+	if PlayerControl.player1Control:testTrigger("right") and self.idx < 1 then
+		self.idx = 1
+
+		game.menuChangeSound:stop()
+		game.menuChangeSound:play()
+	end
+
+	if PlayerControl.player1Control:testTrigger("menu_valid") then
+		if self.idx == 0 then
+			menuState.fsm:changeState(mainMenuState)
+
+			game.menuCancelSound:stop()
+			game.menuCancelSound:play()
+		else
+			love.event.quit()
+		end
+	end
+
+
+	self.cancelButton.active = self.idx == 0
+	self.exitButton.active = self.idx == 1
+end
+
+function exitMenu:exit()
+	self.window:animateTo(60, -360 + 40, 2048)
+end
+
 
 mainMenuState = { idx = 0 }
 function mainMenuState:enter()
@@ -56,12 +102,17 @@ function mainMenuState:update(dt)
 			if self.idx == 0 then
 				menuState.fsm:changeState(gameModeMenuState)
 			else
-				menuState.fsm:changeState(highscoreMenuState)
+				menuState.fsm:changeState(highscoreMenuViewState)
 			end
 
 			game.menuValidSound:stop()
 			game.menuValidSound:play()
 		end
+
+	if PlayerControl.player1Control:testTrigger("menu_back") then
+		menuState.fsm:changeState(exitMenu)
+	end
+
 	end
 
 	menuState.newgameButton.active = self.idx == 0
@@ -188,44 +239,24 @@ end
 function levelMenuState:exit()
 end
 
-highscoreMenuState = {}
-function highscoreMenuState:enter()
+highscoreMenuViewState = {}
+function highscoreMenuViewState:enter()
 	menuState.logo:animateTo(89, -100, 1024)
-	menuState.highscoreMenu:animateTo(0, 0, 2048)
+	menuState.highscoreMenuView:animateTo(0, 0, 2048)
 
 	-- sort highscore
 	table.sort(game.highscores, function(k1, k2) return k1.score > k2.score end )
 
 	-- set high score
 	for i = 1, 10 do
-		local label = ""
-
-		if i == 10 then
-			label = i .. "."
-		else
-			label = " " .. i .. "."
-		end
-
-		label = label .. game.highscores[i].name
-
-		-- how many space?
-		local len = string.len(game.highscores[i].name) + string.format("%d", game.highscores[i].score):len()
-
-		local spaceCount = 15 - len
-		for s = 1, spaceCount do
-			label = label .. " "
-		end
-
-		-- and append score
-		label = label .. game.highscores[i].score
-
-		menuState.highscoresLabels[i].text = label
+		menuState.highscoresLabels[i].nameLabel.text = i .. ". " .. game.highscores[i].name
+		menuState.highscoresLabels[i].scoreLabel.text = game.highscores[i].score
 	end
 end
 
-function highscoreMenuState:update(dt)
+function highscoreMenuViewState:update(dt)
 	if PlayerControl.player1Control:testTrigger("menu_valid") then
-		menuState.highscoreMenu:animateTo(640, 0, 2048)
+		menuState.highscoreMenuView:animateTo(640, 0, 2048)
 		menuState.logo:animateTo(89, 20, 1024)
 		menuState.fsm:changeState(mainMenuState)
 
@@ -234,7 +265,7 @@ function highscoreMenuState:update(dt)
 	end
 
 	if PlayerControl.player1Control:testTrigger("menu_back") then
-		menuState.highscoreMenu:animateTo(640, 0, 2048)
+		menuState.highscoreMenuView:animateTo(640, 0, 2048)
 		menuState.logo:animateTo(89, 20, 1024)
 		menuState.fsm:changeState(mainMenuState)
 
@@ -243,7 +274,7 @@ function highscoreMenuState:update(dt)
 	end
 end
 
-function highscoreMenuState:exit()
+function highscoreMenuViewState:exit()
 end
 
 function startGameThread()
@@ -259,14 +290,17 @@ menuState.music:setLooping(true)
 function menuState:enter()
 	print("Menu")
 
+	self.view = Entity.new(0, 0)
+	game.scene:addChild(self.view)
+
 	-- logo
 	self.logo = Sprite.new(love.graphics.newImage("Gfx/logo.png"), nil, 89, -100)
 	self.logo:animateTo(89, 20, 1024)
-	game.scene:addChild(self.logo)
+	self.view:addChild(self.logo)
 
 	-- main menu
 	self.mainMenu = Entity.new(640, 0)
-	game.scene:addChild(self.mainMenu)
+	self.view:addChild(self.mainMenu)
 	self.mainMenu:addChild(Text.new("Main Menu", 0, 80, 320, "center"))
 
 	self.newgameButton = Button.new("New Game", 70, 100)
@@ -278,7 +312,7 @@ function menuState:enter()
 
 	-- game mode menu
 	self.gameModeMenu = Entity.new(640, 0)
-	game.scene:addChild(self.gameModeMenu)
+	self.view:addChild(self.gameModeMenu)
 	self.gameModeMenu:addChild(Text.new("Choose Mode", 0, 80, 320, "center"))
 
 	self.classicButton = Button.new("Classic", 70, 100)
@@ -303,20 +337,35 @@ function menuState:enter()
 	self.levelButtons[1].active = true
 
 	-- highscore
-	self.highscoreMenu = Entity.new(640, 0)
-	game.scene:addChild(self.highscoreMenu)
-	self.highscoreMenu:addChild(Sprite.new(love.graphics.newImage("Gfx/logo_small.png"), nil, 126, 5))
-	self.highscoreMenu:addChild(Text.new("Highscores", 0, 25, 320, "center"))
+	self.highscoreMenuView = Entity.new(640, 0)
+	self.view:addChild(self.highscoreMenuView)
+	self.highscoreMenuView:addChild(Sprite.new(love.graphics.newImage("Gfx/logo_small.png"), nil, 126, 5))
+	self.highscoreMenuView:addChild(Text.new("Highscores", 0, 25, 320, "center"))
 
 	self.highscoresLabels = {}
 	for i = 1, 10 do
-		local label = Text.new(i .. ". Name        1250", 96, 30 + i * 10)
-		table.insert(self.highscoresLabels, label)
+		local nameLabel = Text.new(i .. ". Name", 90, 30 + i * 10, 140, "left")
+		self.highscoreMenuView:addChild(nameLabel)
+		local scoreLabel = Text.new(i .. "1545", 90, 30 + i * 10, 140, "right")
+		self.highscoreMenuView:addChild(scoreLabel)
 
-		self.highscoreMenu:addChild(label)
+		-- shift the 10th lines alittle bit to the left
+		if i == 10 then
+			nameLabel:moveTo(nameLabel.x - 8, nameLabel.y)
+		end
+
+		table.insert(self.highscoresLabels, {nameLabel = nameLabel, scoreLabel = scoreLabel})
 	end
 
+	local backBtn = Button.new("Back", 120, 160)
+	backBtn.active = true
+	self.highscoreMenuView:addChild(backBtn)
+
 	self.music:play()
+
+	-- status text
+	self.view:addChild(Text.new("Version 1.0", 0, 170, 320, "right"))
+	self.view:addChild(Text.new("by Pilo", 0, 170, 320, "left"))
 
 	self.fsm = FSM.new(mainMenuState)
 end
@@ -327,11 +376,7 @@ end
 
 function menuState:exit()
 	-- remove element from scene
-	game.scene:removeChild(self.logo)
-	game.scene:removeChild(self.mainMenu)
-	game.scene:removeChild(self.gameModeMenu)
-	game.scene:removeChild(self.levelMenu)
-	game.scene:removeChild(self.highscoreMenu)
+	game.scene:removeChild(self.view)
 
 	self.music:stop()
 end
@@ -340,6 +385,8 @@ game = {}
 game.menuChangeSound = love.audio.newSource("Sounds/menu_change.wav", "static")
 game.menuValidSound = love.audio.newSource("Sounds/menu_valid.wav", "static")
 game.menuCancelSound = love.audio.newSource("Sounds/menu_cancel.wav", "static")
+
+game.menuWindowImage = love.graphics.newImage("Gfx/menu_window.png")
 
 function game:load()
 	-- background

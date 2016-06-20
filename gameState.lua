@@ -43,6 +43,10 @@ function gameStatePlay:update(dt)
 		gameState.fallSound:play()
 	end
 
+	if PlayerControl.player1Control:testTrigger("menu_back") and not gameState.fall then
+		gameState.fsm:changeState(inGameMenuState)
+	end
+
 	-- move tetromino
 	gameState:updateTetromino(dt)
 end
@@ -69,10 +73,11 @@ function newHighscoreState:enter()
 	self.view = Entity.new(0, 0)
 	game.scene:addChild(self.view)
 
-	self.view:addChild(Text.new("New Highscore!", 0, 45, 320, "center"))
+	self.view:addChild(Text.new("New Highscore!", 0, 35, 320, "center"))
 	self.view:addChild(Text.new(self.highscore, 0, 55, 320, "center"))
 
 	self.view:addChild(Text.new("Enter your name", 0, 80, 320, "center"))
+	self.view:addChild(Sprite.new(love.graphics.newImage("Gfx/text_field.png"), nil, 95, 96))
 	self.nameField = Text.new("", 0, 100, 320, "center")
 	self.view:addChild(self.nameField)
 
@@ -160,12 +165,25 @@ function gameOverThread()
 end
 
 function gameReadyThread()
+	-- first show instruction
+
+	-- fade in
+	game:fadeIn()
+	wait(0.2)
+
+	-- wait for an input
+	while not PlayerControl.player1Control:testTrigger("menu_valid") do
+		coroutine.yield()
+	end
+
+	-- let's go!
+	gameState.view:animateTo(0, 0)
+	gameState.instructionView:animateTo(-640, 0)
+
 	-- setup text
 	gameState.gameReadyText:moveTo(640, 85)	
 	gameState.gameReadyText.text = "Get Ready!"
 
-	-- fade in
-	game:fadeIn()
 
 	-- wait for fade
 	wait(0.2)
@@ -209,6 +227,70 @@ function gameReadyThread()
 
 	gameState.music:play()
 	gameState.fsm:changeState(gameStatePlay)
+end
+
+function backToMainMenuThread()
+	-- stop music
+	gameState.music:stop()
+
+	-- fade out
+	game:fadeOut()
+	wait(0.3)
+
+	game.fsm:changeState(menuState)
+end
+
+inGameMenuState = { idx = 0}
+function inGameMenuState:enter()
+	self.window = Sprite.new(game.menuWindowImage, nil, 60, -360 + 40)
+	game.scene:addChild(self.window)
+
+	self.cancelButton = Button.new("Cancel", 15, 70)
+	self.exitButton = Button.new("Exit", 105, 70)
+	self.window:addChild(self.exitButton)
+	self.window:addChild(self.cancelButton)
+	self.window:addChild(Text.new("Are you sure you want to go back to main menu?", 20, 30, 160, "center"))
+
+	self.window:animateTo(60, 40, 2048)
+end
+
+function inGameMenuState:update(dt)
+	if PlayerControl.player1Control:testTrigger("left") and self.idx > 0 then
+		self.idx = 0
+
+		game.menuChangeSound:stop()
+		game.menuChangeSound:play()
+	end
+
+	if PlayerControl.player1Control:testTrigger("right") and self.idx < 1 then
+		self.idx = 1
+
+		game.menuChangeSound:stop()
+		game.menuChangeSound:play()
+	end
+
+	if PlayerControl.player1Control:testTrigger("menu_valid") then
+		if self.idx == 0 then
+			
+			gameState.fsm:changeState(gameStatePlay)
+
+			game.menuCancelSound:stop()
+			game.menuCancelSound:play()
+		else
+			gameState.fsm:changeState(ThreadState.new(backToMainMenuThread))
+
+			game.menuCancelSound:stop()
+			game.menuCancelSound:play()
+		end
+	end
+
+
+	self.cancelButton.active = self.idx == 0
+	self.exitButton.active = self.idx == 1
+end
+
+function inGameMenuState:exit()
+	self.window:animateTo(60, -360 + 40, 2048)
 end
 
 TetrominoEntity = {}
@@ -364,9 +446,12 @@ function gameState:enter()
 
 	self.fall = false -- when true, it moves the tetromino to the bottom
 
+	self.view = Entity.new(640, 0)
+	game.scene:addChild(self.view)
+
 	-- add element to the scene
 	self.scorePanel = Entity.new(640,0)
-	game.scene:addChild(self.scorePanel)
+	self.view:addChild(self.scorePanel)
 
 	self.levelText = Text.new("Level " .. self.level, 0, 10)
 	self.scorePanel:addChild(self.levelText)
@@ -378,13 +463,13 @@ function gameState:enter()
 	self.scorePanel:addChild(self.linesText)
 
 	self.nextTetrominoPanel = Entity.new(-640 + 78, 10)
-	game.scene:addChild(self.nextTetrominoPanel)
+	self.view:addChild(self.nextTetrominoPanel)
 	self.nextTetrominoPanel:addChild(Text.new("Next", 0, 0, 32, "left"))
 	self.nextTetrominoEntity = TetrominoEntity.new(0, 20, self.nextTetromino, 0)
 	self.nextTetrominoPanel:addChild(self.nextTetrominoEntity)
 
 	self.gridBezel = Sprite.new(gameState.bezelImage, nil, 117, 367)
-	game.scene:addChild(self.gridBezel)
+	self.view:addChild(self.gridBezel)
 
 	self.gridEntity = TetrominoGrid.new(self.grid, 3, 3)
 	self.gridBezel:addChild(self.gridEntity)
@@ -397,21 +482,30 @@ function gameState:enter()
 	self.gridBezel:animateTo(117, 7, 2048)
 
 	self.gameReadyText = Text.new("Get Ready!", 640, 85, 320, "center")
-	game.scene:addChild(self.gameReadyText)
+	self.view:addChild(self.gameReadyText)
 
 	self.gameOverText = Text.new("Game Over", 640, 85, 320, "center")
-	game.scene:addChild(self.gameOverText)
+	self.view:addChild(self.gameOverText)
+
+	self.instructionView = Entity.new(0, 0)
+	game.scene:addChild(self.instructionView)
+
+	self.instructionView:addChild(Text.new("How to play", 0, 40, 320, "center"))
+	self.instructionView:addChild(Text.new("Move", 40, 70, 80, "right"))
+	self.instructionView:addChild(Text.new("Rotate", 40, 95, 80, "right"))
+	self.instructionView:addChild(Text.new("Fall", 40, 120, 80, "right"))
+	self.instructionView:addChild(Sprite.new(love.graphics.newImage("Gfx/controls.png"), nil, 140, 62))
+	local startBtn = Button.new("Start", 120, 150)
+	startBtn.active = true
+	self.instructionView:addChild(startBtn)
 
 	self.fsm = FSM(ThreadState.new(gameReadyThread))
 end
 
 function gameState:exit()
 	-- clean game scene
-	game.scene:removeChild(self.scorePanel)
-	game.scene:removeChild(self.nextTetrominoPanel)
-	game.scene:removeChild(self.gridBezel)
-	game.scene:removeChild(self.gameReadyText)	
-	game.scene:removeChild(self.gameOverText)
+	game.scene:removeChild(self.view)
+	game.scene:removeChild(self.instructionView)
 end
 
 function gameState:generateTetromino(idx) 
