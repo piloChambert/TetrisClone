@@ -176,6 +176,9 @@ function gameReadyThread()
 		coroutine.yield()
 	end
 
+	game.menuValidSound:stop()
+	game.menuValidSound:play()
+
 	-- let's go!
 	gameState.view:animateTo(0, 0)
 	gameState.instructionView:animateTo(-640, 0)

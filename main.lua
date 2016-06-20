@@ -1,4 +1,4 @@
-FSM = require "FSM"
+FSM = require "fsm"
 require "PlayerControl"
 require "Entity"
 serialize = require "ser"
