@@ -3,8 +3,10 @@ require "PlayerControl"
 require "Entity"
 serialize = require "ser"
 gameState = require "gameState"
+VersusState = require "VersusState"
 
-socket = require "socket"
+require "tetrominos"
+
 
 -- screen configuration
 canvasConfiguration = {
@@ -111,6 +113,8 @@ function mainMenuState:update(dt)
 
 			if self.idx == 0 then
 				menuState.fsm:changeState(gameModeMenuState)
+			elseif self.idx == 1 then
+				menuState.fsm:changeState(ThreadState.new(startVerusGameThread))
 			else
 				menuState.fsm:changeState(highscoreMenuViewState)
 			end
@@ -126,7 +130,8 @@ function mainMenuState:update(dt)
 	end
 
 	menuState.newgameButton.active = self.idx == 0
-	menuState.highscoresButton.active = self.idx == 1	
+	menuState.versusButton.active = self.idx == 1
+	menuState.highscoresButton.active = self.idx == 2
 end
 
 function mainMenuState:exit()
@@ -189,89 +194,6 @@ function gameModeMenuState:update(dt)
 end
 
 function gameModeMenuState:exit()
-end
-
-multiModeMenuState = { idx = 0 }
-function multiModeMenuState:enter()
-	--menuState.gameModeMenu:animateTo(0, 0, 2048)
-
-	self.timer = 0
-
-	self.multicastSocket = socket.udp()
-	assert(self.multicastSocket:setoption("reuseaddr", true))
-	self.multicastSocket:setsockname("239.192.1.1", 50005)
-
-	--assert(self.multicastSocket:getsockname())
-
-	assert(self.multicastSocket:setoption( "ip-add-membership", { multiaddr="239.192.1.1", interface="*" } ))
-	assert(self.multicastSocket:setoption("ip-multicast-loop", true))
-	self.multicastTimer = 0
-end
-
-function multiModeMenuState:update(dt)
-	-- doesn't allow input while animating
-	self.timer = self.timer + dt
-	if self.timer > 0.3 then
-		if PlayerControl.player1Control:testTrigger("left") and self.idx > 0 then
-			self.idx = 0
-
-			game.menuChangeSound:stop()
-			game.menuChangeSound:play()
-		end
-
-		if PlayerControl.player1Control:testTrigger("right") and self.idx < 1 then
-			self.idx = 1
-
-			game.menuChangeSound:stop()
-			game.menuChangeSound:play()
-		end
-
-		if PlayerControl.player1Control:testTrigger("menu_valid") then
-			menuState.gameModeMenu:animateTo(-640, 0, 2048)
-			--menuState.fsm:changeState(levelMenuState)
-
-			-- set game mode
-			if self.idx == 0 then
-				gameState.mode = "classic"
-			else
-				gameState.mode = "challenge"
-			end
-
-			game.menuValidSound:stop()
-			game.menuValidSound:play()
-		end
-
-		if PlayerControl.player1Control:testTrigger("menu_back") then
-			menuState.gameModeMenu:animateTo(640, 0, 2048)
-			menuState.fsm:changeState(mainMenuState)
-
-			game.menuCancelSound:stop()
-			game.menuCancelSound:play()
-		end
-	end
-
-	-- broadcast
-	self.multicastTimer = self.multicastTimer + dt
-	if self.multicastTimer > 1.0 then
-		self.multicastTimer = self.multicastTimer - 1.0
-
-		print("broadcasting...")
-		local s = socket.udp()
-		s:setoption("ip-multicast-loop", true)
-		s:sendto('hello world', '239.192.1.1', 50005)
-	end
-
-	-- and recieved
-	local data, msg_or_ip, port_or_nil
-	data, msg_or_ip, port_or_nil = self.multicastSocket:receivefrom()
-	if data then
-		print(data)
-	end
-
-end
-
-function multiModeMenuState:exit()
-	--self.multicastSocket = nil
 end
 
 levelMenuState = { idx = 0 }
@@ -376,6 +298,12 @@ function startGameThread()
 	game.fsm:changeState(gameState)
 end
 
+function startVerusGameThread()
+	game:fadeOut()
+	wait(0.5)
+	game.fsm:changeState(VersusState)
+end
+
 menuState = {}
 menuState.music = love.audio.newSource("Music/menu_music.xm", "stream")
 menuState.music:setLooping(true)
@@ -396,11 +324,15 @@ function menuState:enter()
 	self.view:addChild(self.mainMenu)
 	self.mainMenu:addChild(Text.new("Main Menu", 0, 80, 320, "center"))
 
-	self.newgameButton = Button.new("New Game", 70, 100)
+	self.newgameButton = Button.new("New Game", 30, 100)
 	self.mainMenu:addChild(self.newgameButton)
 	self.newgameButton.active = true
 
-	self.highscoresButton = Button.new("Highscores", 170, 100)
+	self.versusButton = Button.new("2 Players", 120, 100)
+	self.mainMenu:addChild(self.versusButton)
+
+
+	self.highscoresButton = Button.new("Highscores", 210, 100)
 	self.mainMenu:addChild(self.highscoresButton)
 
 	-- game mode menu
@@ -483,6 +415,18 @@ game = {}
 game.menuChangeSound = love.audio.newSource("Sounds/menu_change.wav", "static")
 game.menuValidSound = love.audio.newSource("Sounds/menu_valid.wav", "static")
 game.menuCancelSound = love.audio.newSource("Sounds/menu_cancel.wav", "static")
+
+game.bezelImage = love.graphics.newImage("Gfx/bezel.png")
+game.rotateSound = love.audio.newSource("Sounds/rotate.wav", "static")
+game.moveSound = love.audio.newSource("Sounds/move.wav", "static")
+game.fallSound = love.audio.newSource("Sounds/fall.wav", "static")
+game.lineSound = love.audio.newSource("Sounds/line.wav", "static")
+game.levelUpSound = love.audio.newSource("Sounds/level_up.wav", "static")
+game.ready1Sound = love.audio.newSource("Sounds/ready1.wav", "static")
+game.ready2Sound = love.audio.newSource("Sounds/ready2.wav", "static")
+game.levelMusic = love.audio.newSource("Music/main_theme.xm", "stream")
+game.levelMusic:setLooping(true)
+game.lostMusic = love.audio.newSource("Music/lost.xm", "stream")
 
 game.menuWindowImage = love.graphics.newImage("Gfx/menu_window.png")
 
@@ -598,6 +542,7 @@ end
 
 function love.update(dt)
 	PlayerControl.player1Control:update()
+	PlayerControl.player2Control:update()
 	game:update(dt)
 end
 
