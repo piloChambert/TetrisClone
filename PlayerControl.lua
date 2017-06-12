@@ -102,6 +102,8 @@ end
 local joysticks = love.joystick.getJoysticks()
 
 local player1Joystick = nil
+local player2Joystick = nil
+
 if #joysticks > 0 then
 	player1Joystick = joysticks[1]
 end
@@ -120,11 +122,10 @@ player1Event = { 	left 	= 	{"left", 	"dpleft", 	"leftx", 	true},
 					menu_back = {"escape", "b",			nil, 		nil},
 					text_del = {"backspace", nil, 		nil, 		nil}}
 
-if #joysticks > 1 then
-	player1Joystick = joysticks[2]
-end
 
-local player2Joystick = nil
+if #joysticks > 1 then
+	player2Joystick = joysticks[2]
+end
 --	    						keyboard 	DPad        Axis     Invert Axis
 player2Event = { 	left 	= 	{"j",		"dpleft", 	"leftx", 	true},
 	 				right 	=	{"l", 		"dpright", 	"leftx", 	false},

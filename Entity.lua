@@ -117,7 +117,7 @@ function Button:draw(parentX, parentY)
 	local _x = self.x + parentX
 	local _y = self.y + parentY
 
-	love.graphics.setFont(gameFont)
+	love.graphics.setColor(255, 255, 255, 255)
 
 	local w = 80
 	local image = Button.image
@@ -144,6 +144,14 @@ function Button:draw(parentX, parentY)
 		love.graphics.draw(image, quad, _x, _y)		
 	end
 
+	if self.active then
+		local t = math.floor(love.timer.getTime()*8)
+		if t % 2 == 0 then
+			love.graphics.setColor(128, 128, 128, 255)
+		end
+	end
+
+	love.graphics.setFont(gameFont)
 	love.graphics.printf(self.title, _x, _y + 4, w, "center")
 
 	Entity.draw(self, parentX, parentY)
@@ -199,6 +207,8 @@ function Sprite:draw(parentX, parentY)
 	local _x = self.x + parentX
 	local _y = self.y + parentY
 
+	love.graphics.setColor(255, 255, 255, 255)
+
 	if quad then
 		love.graphics.draw(self.image, self.quad, _x, _y)
 	else
@@ -208,5 +218,5 @@ function Sprite:draw(parentX, parentY)
 	Entity.draw(self, parentX, parentY)
 end
 
-gameFont = love.graphics.newImageFont("Gfx/font.png"," !\"#$%&`()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_'abcdefghijklmnopqrstuvwxyz{|}~µ")
+gameFont = love.graphics.newImageFont("Gfx/font.png"," !\"#$%&`()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_'abcdefghijklmnopqrstuvwxyz{|}~µ", 1)
 gameFont:setFilter("nearest", "nearest")

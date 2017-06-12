@@ -1,4 +1,4 @@
-tetrominos = require "tetrominos"
+tetrominoShapes = require "tetrominos"
 
 local gameStatePlay = {}
 function gameStatePlay:enter()
@@ -7,40 +7,40 @@ end
 
 function gameStatePlay:update(dt)
 	-- check input
+
+	-- rotate (if not falling)
 	if PlayerControl.player1Control:testTrigger("use") and not gameState.fall then
 		local newOrient = (gameState.tetromino.orientation + 1) % 4
-		if gameState:canRotateTo(newOrient) then
+		if gameState.gridEntity:canRotate(gameState.tetromino, newOrient) then
 			gameState.tetromino.orientation = newOrient
-			gameState.rotateSound:stop()			
+			gameState.rotateSound:stop()
 			gameState.rotateSound:play()
 		end
 	end
 
-	if PlayerControl.player1Control:testTrigger("left") and gameState:canMoveLeft() and not gameState.fall then
-		gameState.tetromino.x = gameState.tetromino.x - 1
+	if PlayerControl.player1Control:testTrigger("left") and gameState.gridEntity:canMoveLeft(gameState.tetromino) and not gameState.fall then
+		gameState.tetromino:animateToGrid(gameState.tetromino.gridX - 1, gameState.tetromino.gridY, 256)
 		gameState.moveSound:stop()		
 		gameState.moveSound:play()
 	end
 
-	if PlayerControl.player1Control:testTrigger("right") and gameState:canMoveRight() and not gameState.fall then
-		gameState.tetromino.x = gameState.tetromino.x + 1
+	if PlayerControl.player1Control:testTrigger("right") and gameState.gridEntity:canMoveRight(gameState.tetromino) and not gameState.fall then
+		gameState.tetromino:animateToGrid(gameState.tetromino.gridX + 1, gameState.tetromino.gridY, 256)
 		gameState.moveSound:stop()		
 		gameState.moveSound:play()
 	end
 
-	if PlayerControl.player1Control:testTrigger("attack") then
+	if PlayerControl.player1Control:testTrigger("attack") and not gameState.fall then
 		-- make the tetromino fall
-		-- compute the y position
-		local y = gameState.tetromino.y + 1
-		while not gameState:collideWithGrid(tetrominos[gameState.tetromino.idx][gameState.tetromino.orientation], gameState.tetromino.x,  y) do
-			y = y + 1
-		end
+		
+		local dist = gameState.gridEntity:canMoveDown(gameState.tetromino)
+		gameState.tetromino:animateToGrid(gameState.tetromino.gridX, gameState.tetromino.gridY + dist, 1024)
 
-		print(y)
-
-		gameState.fall = y - 1
+		gameState.fall = true
 		gameState.fallSound:stop()
 		gameState.fallSound:play()
+
+		print(gameState.fall)
 	end
 
 	if PlayerControl.player1Control:testTrigger("menu_back") and not gameState.fall then
@@ -128,10 +128,10 @@ end
 
 function gameOverThread()
 	-- copy last tetromino
-	gameState:copyTetromino()
+	gameState.gridEntity:copyTetromino(gameState.tetromino)
 
 	-- and don't display it
-	gameState.gridEntity:removeChild(gameState.currentTetrominoEntity)
+	gameState.gridEntity:removeChild(gameState.tetromino)
 
 	-- stop music
 	gameState.music:stop()
@@ -139,12 +139,13 @@ function gameOverThread()
 	-- play lost music
 	gameState.lostMusic:play()
 
-
+	-- show game over
 	gameState.gameOverText:animateTo(0, 85, 2048)
 
+	-- fill the grid
 	for y = 19,0, -1 do 
 		for x = 0,9 do
-			gameState.grid[y * 10 + x] = 7
+			gameState.gridEntity.grid[y * 10 + x] = 7
 		end
 
 		wait(0.016)
@@ -245,15 +246,25 @@ end
 
 inGameMenuState = { idx = 0}
 function inGameMenuState:enter()
-	self.window = Sprite.new(game.menuWindowImage, nil, 60, -360 + 40)
-	game.scene:addChild(self.window)
+	if not self.window then
+		self.window = Sprite.new(game.menuWindowImage, nil, 60, -360 + 40)
+		game.scene:addChild(self.window)
 
-	self.cancelButton = Button.new("Cancel", 15, 70)
-	self.exitButton = Button.new("Exit", 105, 70)
-	self.window:addChild(self.exitButton)
-	self.window:addChild(self.cancelButton)
-	self.window:addChild(Text.new("Are you sure you want to go back to main menu?", 20, 30, 160, "center"))
+		self.cancelButton = Button.new("Cancel", 15, 70)
+		self.exitButton = Button.new("Exit", 105, 70)
+		self.window:addChild(self.exitButton)
+		self.window:addChild(self.cancelButton)
+		self.window:addChild(Text.new("Are you sure you want to go back to main menu?", 20, 30, 160, "center"))
+	else
+		-- move window on top
+		game.scene:removeChild(self.window)
+		game.scene:addChild(self.window)	
+	end
 
+	self.idx = 0
+
+	game.menuCancelSound:stop()
+	game.menuCancelSound:play()
 	self.window:animateTo(60, 40, 2048)
 end
 
@@ -277,8 +288,8 @@ function inGameMenuState:update(dt)
 			
 			gameState.fsm:changeState(gameStatePlay)
 
-			game.menuCancelSound:stop()
-			game.menuCancelSound:play()
+			game.menuValidSound:stop()
+			game.menuValidSound:play()	
 		else
 			gameState.fsm:changeState(ThreadState.new(backToMainMenuThread))
 
@@ -302,7 +313,14 @@ function TetrominoEntity.new(x, y, index, orientation)
 
 	self.index = index
 	self.orientation = orientation
-	self.draw = TetrominoEntity.draw
+
+	-- copy TetrominoGrid func
+	for key, value in pairs(TetrominoEntity) do
+		self[key] = value
+	end
+
+	self.gridX = math.floor(x / 8)
+	self.gridY = math.floor(y / 8)
 
 	return self
 end
@@ -311,7 +329,7 @@ function TetrominoEntity:draw(parentX, parentY)
 	local _x = self.x + (parentX or 0)
 	local _y = self.y + (parentY or 0)
 
-	local tetromino = tetrominos[self.index][self.orientation]
+	local tetromino = tetrominoShapes[self.index][self.orientation]
 
 	for i = 0,3 do
 		for j = 0,3 do
@@ -325,12 +343,35 @@ function TetrominoEntity:draw(parentX, parentY)
 	Entity.draw(self, parentX, parentY)
 end
 
-TetrominoGrid = {}
-function TetrominoGrid.new(grid, x, y)
-	local self = Entity.new(x, y)
-	self.draw = TetrominoGrid.draw
+function TetrominoEntity:moveToGrid(x, y)
+	self.gridX = x
+	self.gridY = y
+	self:moveTo(x * 8, y * 8)
+end
 
-	self.grid = grid
+function TetrominoEntity:animateToGrid(x, y, speed)
+	self.gridX = x
+	self.gridY = y
+	self:animateTo(x * 8, y * 8, speed)
+end
+
+TetrominoGrid = {}
+TetrominoGrid.__index = TetrominoGrid
+function TetrominoGrid.new(x, y)
+	local self = Entity.new(x, y)
+
+	-- copy TetrominoGrid func
+	for key, value in pairs(TetrominoGrid) do
+		self[key] = value
+	end
+
+	-- create empty grid
+	self.grid = {}
+	for y = 0,19 do
+		for x = 0,9 do
+			self.grid[y * 10 + x] = -1
+		end
+	end
 
 	-- line offset are used to animate the grid when lines dissappear
 	self.lineOffset = {}
@@ -370,6 +411,129 @@ function TetrominoGrid:draw(parentX, parentY)
 
 	Entity.draw(self, parentX, parentY)
 end
+
+-- return true if tetromino shape collide with anything in the grid
+function TetrominoGrid:collideWithGrid(tetrominoShape, tx, ty)
+	for j = 0, 3 do
+		for i = 0, 3 do
+			local x = tx + i
+			local y = ty + j
+			if tetrominoShape[j * 4 + i + 1] ~= 0 then
+				-- test bound
+				if x < 0 then return true end
+				if x > 9 then return true end
+				if y > 19 then return true end
+
+				-- test with grid
+				local tile = self.grid[y * 10 + x]
+
+				if tile ~= -1 then return true end
+			end
+		end
+	end
+
+	-- else
+	return false
+end
+
+-- return true if tetromino can move left
+function TetrominoGrid:canMoveLeft(tetromino)
+	-- test if there is a collison on the left
+	local shape = tetrominoShapes[tetromino.index][tetromino.orientation]
+	return not self:collideWithGrid(shape, tetromino.gridX - 1, tetromino.gridY)
+end
+
+-- return true if tetromino can move right
+function TetrominoGrid:canMoveRight(tetromino)
+	-- test if there is a collison on the left
+	local shape = tetrominoShapes[tetromino.index][tetromino.orientation]
+	return not self:collideWithGrid(shape, tetromino.gridX + 1, tetromino.gridY)
+end
+
+-- return true if orientation is valid
+function TetrominoGrid:canRotate(tetromino, newOrientation)
+	-- test if there is a collison on the left
+	local shape = tetrominoShapes[tetromino.index][newOrientation]
+	return not self:collideWithGrid(shape, tetromino.gridX, tetromino.gridY)
+end
+
+-- return nil if at bottom
+-- else return distance to bottom
+function TetrominoGrid:canMoveDown(tetromino)
+	-- test if there is a collison on the left
+	local shape = tetrominoShapes[tetromino.index][tetromino.orientation]
+	local dist = 1
+	while not self:collideWithGrid(shape, tetromino.gridX, tetromino.gridY + dist) do
+		dist = dist + 1
+	end
+
+	dist = dist - 1
+
+	if dist == 0 then
+		return false
+	end
+
+	-- else
+	return dist
+end
+
+
+-- return the list of fill lines
+function TetrominoGrid:fullLines()
+	local res = {}
+
+	for j = 0, 19 do
+		local full = true
+
+		for i = 0, 9 do
+			if self.grid[j * 10 + i] == -1 then
+				full = false
+			end
+		end
+
+		if full then
+			table.insert(res, j)
+		end
+	end
+
+	return res
+end
+
+function TetrominoGrid:copyTetromino(tetromino) 
+	local shape = tetrominoShapes[tetromino.index][tetromino.orientation]
+	for j = 0, 3 do
+		for i = 0, 3 do
+			local x = tetromino.gridX + i
+			local y = tetromino.gridY + j
+
+			if shape[j * 4 + i + 1] ~= 0 then
+				self.grid[y * 10 + x] = tetromino.index
+			end
+		end
+	end	
+end
+
+-- remove line at idx, and copy the top down
+function TetrominoGrid:removeLine(idx)
+	-- just in case
+	if idx < 0 or idx > 19 then
+		return
+	end
+
+	for j = idx, 1, -1 do
+		for i = 0, 9 do
+			self.grid[j * 10 + i] = self.grid[(j - 1) * 10 + i]
+		end
+
+		self.lineOffset[j] = self.lineOffset[j] - 8
+	end
+
+	-- new blank line at top
+	for i = 0, 9 do
+		self.grid[i] = -1
+	end
+end
+
 
 local gameState = {}
 gameState.background = love.graphics.newImage("Gfx/menu_background.png")
@@ -417,31 +581,6 @@ for i = 0, 7 do
 end
 
 function gameState:enter()
-	-- create an empty grid
-	self.grid = {}
-
-	for y = 0,19 do
-		for x = 0,9 do
-			self.grid[y * 10 + x] = -1
-		end
-	end
-
-	if self.mode == "challenge" then
-		-- fill with some "noise"
-		for y = 0, 3 + self.level / 4 do
-			for x = 0,9 do
-				local r = love.math.random()
-
-				if r < 0.25 then
-					self.grid[(19 - y) * 10 + x] = love.math.random(7)
-				end
-			end
-		end
-	end
-
-	self:generateTetromino(love.math.random(7) - 1)
-	self.nextTetromino = love.math.random(7) - 1
-
 	self.timer = 0
 
 	self.lineCount = 0
@@ -458,7 +597,8 @@ function gameState:enter()
 
 	self.levelText = Text.new("Level " .. self.level, 0, 10)
 	self.scorePanel:addChild(self.levelText)
-	self.scorePanel:addChild(Text.new("Score", 0, 30))
+	self.highscoreText = Text.new("Highscore" .. game.highscores[9].score, 0, 30)
+	self.scorePanel:addChild(self.highscoreText)
 	self.scoreText = Text.new("0", 0, 40)
 	self.scorePanel:addChild(self.scoreText)
 	self.scorePanel:addChild(Text.new("Line", 0, 60))
@@ -468,17 +608,17 @@ function gameState:enter()
 	self.nextTetrominoPanel = Entity.new(-640 + 78, 10)
 	self.view:addChild(self.nextTetrominoPanel)
 	self.nextTetrominoPanel:addChild(Text.new("Next", 0, 0, 32, "left"))
-	self.nextTetrominoEntity = TetrominoEntity.new(0, 20, self.nextTetromino, 0)
-	self.nextTetrominoPanel:addChild(self.nextTetrominoEntity)
+	self.nextTetromino = TetrominoEntity.new(0, 20, 0, 0)
+	self.nextTetrominoPanel:addChild(self.nextTetromino)
 
 	self.gridBezel = Sprite.new(gameState.bezelImage, nil, 117, 367)
 	self.view:addChild(self.gridBezel)
 
-	self.gridEntity = TetrominoGrid.new(self.grid, 3, 3)
+	self.gridEntity = TetrominoGrid.new(3, 3)
 	self.gridBezel:addChild(self.gridEntity)
 
-	self.currentTetrominoEntity = TetrominoEntity.new(self.tetromino.x * 8, self.tetromino.y * 8, self.tetromino.idx, self.tetromino.orientation)
-	self.gridEntity:addChild(self.currentTetrominoEntity)
+	self.tetromino = TetrominoEntity.new(0, 0, 0, 0)
+	self.gridEntity:addChild(self.tetromino)
 
 	self.scorePanel:animateTo(210, 0, 2048)
 	self.nextTetrominoPanel:animateTo(78, 10, 2048)
@@ -502,6 +642,21 @@ function gameState:enter()
 	startBtn.active = true
 	self.instructionView:addChild(startBtn)
 
+	if self.mode == "challenge" then
+		-- fill with some "noise"
+		for y = 0, 3 + self.level / 4 do
+			for x = 0,9 do
+				local r = love.math.random()
+
+				if r < 0.25 then
+					self.gridEntity.grid[(19 - y) * 10 + x] = love.math.random(7)
+				end
+			end
+		end
+	end
+
+	self:generateTetromino(love.math.random(7) - 1)
+
 	self.fsm = FSM(ThreadState.new(gameReadyThread))
 end
 
@@ -511,122 +666,25 @@ function gameState:exit()
 	game.scene:removeChild(self.instructionView)
 end
 
+-- generate a next tetromino and 
 function gameState:generateTetromino(idx) 
-	self.tetromino = {
-		idx = idx,
-		orientation = 0,
-		x = 3,
-		y = 0,
-		display_x = 24, -- displayed position
-		display_y = 0
-	}
-end
+	self.tetromino.index = idx
+	self.tetromino.orientation = 0
+	self.tetromino:moveToGrid(3, 0)
 
--- return true if tetromino collide with anything in the grid
-function gameState:collideWithGrid(tetromino, tx, ty)
-	for j = 0, 3 do
-		for i = 0, 3 do
-			local x = tx + i
-			local y = ty + j
-			if tetromino[j * 4 + i + 1] ~= 0 then
-				-- test bound
-				if x < 0 then return true end
-				if x > 9 then return true end
-				if y > 19 then return true end
-
-				-- test with grid
-				local tile = self.grid[y * 10 + x]
-
-				if tile ~= -1 then return true end
-			end
-		end
-	end
-
-	-- else
-	return false
-end
-
-function gameState:canMoveLeft()
-	return not self:collideWithGrid(tetrominos[self.tetromino.idx][self.tetromino.orientation], self.tetromino.x - 1, self.tetromino.y)
-end
-
-function gameState:canMoveRight()
-	return not self:collideWithGrid(tetrominos[self.tetromino.idx][self.tetromino.orientation], self.tetromino.x + 1, self.tetromino.y)
-end
-
-function gameState:canMoveDown()
-	return not self:collideWithGrid(tetrominos[self.tetromino.idx][self.tetromino.orientation], self.tetromino.x, self.tetromino.y + 1)
-end
-
-function gameState:canRotateTo(orient) 
-	return not self:collideWithGrid(tetrominos[self.tetromino.idx][orient], self.tetromino.x, self.tetromino.y)
-end
-
--- return the list of fill lines
-function gameState:fullLines()
-	local res = {}
-
-	for j = 0, 19 do
-		local full = true
-
-		for i = 0, 9 do
-			if self.grid[j * 10 + i] == -1 then
-				full = false
-			end
-		end
-
-		if full then
-			table.insert(res, j)
-		end
-	end
-
-	return res
-end
-
-function gameState:copyTetromino() 
-	local tetromino = tetrominos[self.tetromino.idx][self.tetromino.orientation]
-	for j = 0, 3 do
-		for i = 0, 3 do
-			local x = self.tetromino.x + i
-			local y = self.tetromino.y + j
-
-			if tetromino[j * 4 + i + 1] ~= 0 then
-				self.grid[y * 10 + x] = self.tetromino.idx
-			end
-		end
-	end	
-end
-
--- remove line at idx, and copy the top down
-function gameState:removeLine(idx)
-	-- just in case
-	if idx < 0 or idx > 19 then
-		return
-	end
-
-	for j = idx, 1, -1 do
-		for i = 0, 9 do
-			self.grid[j * 10 + i] = self.grid[(j - 1) * 10 + i]
-		end
-
-		self.gridEntity.lineOffset[j] = self.gridEntity.lineOffset[j] - 8
-	end
-
-	-- new blank line at top
-	for i = 0, 9 do
-		self.grid[i] = -1
-	end
+	-- next one
+	self.nextTetromino.index = love.math.random(7) - 1
 end
 
 -- look for completed lines, remove them and update score
 function gameState:updateGrid() 
 	-- any line to remove?
-	local lines = self:fullLines()
+	local lines = self.gridEntity:fullLines()
 	local score = 10
 
 	if #lines > 0 then
 		for k, idx in ipairs(lines) do
-			self:removeLine(idx)
+			self.gridEntity:removeLine(idx)
 		end
 
 		self.lineCount = self.lineCount + #lines
@@ -661,63 +719,45 @@ function gameState:updateGrid()
 	self.levelText.text = "Level " .. self.level
 end
 
-function gameState:moveTetrominoDown()
-	local bottom = false
-	if self:canMoveDown() then
-		-- move down
-		self.tetromino.y = self.tetromino.y + 1
-
-		bottom = false
-	else
-		bottom  = true
-	end
-
-	return bottom
-end
-
 -- update tetromino
 function gameState:updateTetromino(dt)
 	-- move tetromino
 	local bottom = false
 	if self.fall then
 		-- if falling, move it until we reach the bottom
-		local s = 2048 * dt
-		local _y = self.currentTetrominoEntity.y + math.max(-s, math.min(s, self.fall * 8 - self.currentTetrominoEntity.y))
-		self.tetromino.y = math.floor(_y / 8)
+		-- the tromino is animated for this
 
-		self.currentTetrominoEntity:moveTo(self.currentTetrominoEntity.x, _y)
-
-		bottom = not self:canMoveDown()
+		-- current displayed grid position
+		local _y = math.floor(self.tetromino.y / 8)
+		bottom = _y == self.tetromino.gridY
 	else
 		-- move the tetromino down according to timer
 		self.timer = self.timer + dt
 
 		if self.timer > self.levels[self.level] then
-			bottom = self:moveTetrominoDown()
+			-- move tetromino down
+			if self.gridEntity:canMoveDown(self.tetromino) then
+				self.tetromino:animateToGrid(self.tetromino.gridX, self.tetromino.gridY + 1, 256)
+			else
+				-- can't move down
+				bottom = true
+			end
 
 			-- reset timer
 			self.timer = 0
 		end
-
-		self.currentTetrominoEntity:animateTo(self.tetromino.x * 8, self.tetromino.y * 8, 256)
-		self.currentTetrominoEntity.orientation = self.tetromino.orientation
 	end
 
 	-- if the tetromino reach the end of the grid
 	if bottom then
 		-- copy tetromino to grid
-		self:copyTetromino()
+		self.gridEntity:copyTetromino(self.tetromino)
 
 		-- update the new grid
 		self:updateGrid()
 
 		-- generate a new tetromino
-		self:generateTetromino(self.nextTetromino)
-		self.nextTetromino = love.math.random(7) - 1
-		self.nextTetrominoEntity.index = self.nextTetromino
-		self.currentTetrominoEntity.index = self.tetromino.idx
-		self.currentTetrominoEntity.orientation = self.tetromino.orientation
-		self.currentTetrominoEntity:moveTo(self.tetromino.x * 8, self.tetromino.y * 8)
+		self:generateTetromino(self.nextTetromino.index)
 
 		-- reset timer
 		self.timer = 0
@@ -726,7 +766,7 @@ function gameState:updateTetromino(dt)
 		self.fall = false
 
 		-- are we stuck?
-		if self:collideWithGrid(tetrominos[self.tetromino.idx][self.tetromino.orientation], self.tetromino.x, self.tetromino.y) then
+		if not self.gridEntity:canMoveDown(self.tetromino) then
 			-- Game over!
 			self.fsm:changeState(ThreadState.new(gameOverThread))
 		end

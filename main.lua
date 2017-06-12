@@ -4,6 +4,8 @@ require "Entity"
 serialize = require "ser"
 gameState = require "gameState"
 
+socket = require "socket"
+
 -- screen configuration
 canvasConfiguration = {
 	width = 320, 
@@ -20,15 +22,23 @@ configuration = {
 
 exitMenu = { idx = 0}
 function exitMenu:enter()
-	self.window = Sprite.new(game.menuWindowImage, nil, 60, -360 + 40)
-	game.scene:addChild(self.window)
+	if not self.window then
+		self.window = Sprite.new(game.menuWindowImage, nil, 60, -360 + 40)
+		game.scene:addChild(self.window)
 
-	self.cancelButton = Button.new("Cancel", 15, 70)
-	self.exitButton = Button.new("Exit", 105, 70)
-	self.window:addChild(self.exitButton)
-	self.window:addChild(self.cancelButton)
-	self.window:addChild(Text.new("Are you sure you want to quit?", 20, 30, 160, "center"))
+		self.cancelButton = Button.new("Cancel", 15, 70)
+		self.exitButton = Button.new("Exit", 105, 70)
+		self.window:addChild(self.exitButton)
+		self.window:addChild(self.cancelButton)
+		self.window:addChild(Text.new("Are you sure you want to quit?", 20, 30, 160, "center"))
+	else
+		-- move window on top
+		game.scene:removeChild(self.window)
+		game.scene:addChild(self.window)		
+	end
 
+	game.menuCancelSound:stop()
+	game.menuCancelSound:play()
 	self.window:animateTo(60, 40, 2048)
 end
 
@@ -51,8 +61,8 @@ function exitMenu:update(dt)
 		if self.idx == 0 then
 			menuState.fsm:changeState(mainMenuState)
 
-			game.menuCancelSound:stop()
-			game.menuCancelSound:play()
+			game.menuValidSound:stop()
+			game.menuValidSound:play()
 		else
 			love.event.quit()
 		end
@@ -84,13 +94,13 @@ function mainMenuState:update(dt)
 	self.timer = self.timer + dt
 	if self.timer > 0.3 then
 		if PlayerControl.player1Control:testTrigger("left") and self.idx > 0 then
-			self.idx = 0
+			self.idx = self.idx - 1
 			game.menuChangeSound:stop()
 			game.menuChangeSound:play()
 		end
 
-		if PlayerControl.player1Control:testTrigger("right") and self.idx < 1 then
-			self.idx = 1
+		if PlayerControl.player1Control:testTrigger("right") and self.idx < 2 then
+			self.idx = self.idx + 1
 
 			game.menuChangeSound:stop()
 			game.menuChangeSound:play()
@@ -179,6 +189,89 @@ function gameModeMenuState:update(dt)
 end
 
 function gameModeMenuState:exit()
+end
+
+multiModeMenuState = { idx = 0 }
+function multiModeMenuState:enter()
+	--menuState.gameModeMenu:animateTo(0, 0, 2048)
+
+	self.timer = 0
+
+	self.multicastSocket = socket.udp()
+	assert(self.multicastSocket:setoption("reuseaddr", true))
+	self.multicastSocket:setsockname("239.192.1.1", 50005)
+
+	--assert(self.multicastSocket:getsockname())
+
+	assert(self.multicastSocket:setoption( "ip-add-membership", { multiaddr="239.192.1.1", interface="*" } ))
+	assert(self.multicastSocket:setoption("ip-multicast-loop", true))
+	self.multicastTimer = 0
+end
+
+function multiModeMenuState:update(dt)
+	-- doesn't allow input while animating
+	self.timer = self.timer + dt
+	if self.timer > 0.3 then
+		if PlayerControl.player1Control:testTrigger("left") and self.idx > 0 then
+			self.idx = 0
+
+			game.menuChangeSound:stop()
+			game.menuChangeSound:play()
+		end
+
+		if PlayerControl.player1Control:testTrigger("right") and self.idx < 1 then
+			self.idx = 1
+
+			game.menuChangeSound:stop()
+			game.menuChangeSound:play()
+		end
+
+		if PlayerControl.player1Control:testTrigger("menu_valid") then
+			menuState.gameModeMenu:animateTo(-640, 0, 2048)
+			--menuState.fsm:changeState(levelMenuState)
+
+			-- set game mode
+			if self.idx == 0 then
+				gameState.mode = "classic"
+			else
+				gameState.mode = "challenge"
+			end
+
+			game.menuValidSound:stop()
+			game.menuValidSound:play()
+		end
+
+		if PlayerControl.player1Control:testTrigger("menu_back") then
+			menuState.gameModeMenu:animateTo(640, 0, 2048)
+			menuState.fsm:changeState(mainMenuState)
+
+			game.menuCancelSound:stop()
+			game.menuCancelSound:play()
+		end
+	end
+
+	-- broadcast
+	self.multicastTimer = self.multicastTimer + dt
+	if self.multicastTimer > 1.0 then
+		self.multicastTimer = self.multicastTimer - 1.0
+
+		print("broadcasting...")
+		local s = socket.udp()
+		s:setoption("ip-multicast-loop", true)
+		s:sendto('hello world', '239.192.1.1', 50005)
+	end
+
+	-- and recieved
+	local data, msg_or_ip, port_or_nil
+	data, msg_or_ip, port_or_nil = self.multicastSocket:receivefrom()
+	if data then
+		print(data)
+	end
+
+end
+
+function multiModeMenuState:exit()
+	--self.multicastSocket = nil
 end
 
 levelMenuState = { idx = 0 }
@@ -364,8 +457,13 @@ function menuState:enter()
 	self.music:play()
 
 	-- status text
-	self.view:addChild(Text.new("Version 1.0", 0, 170, 320, "right"))
+	self.view:addChild(Text.new("Version 1.2", 0, 170, 320, "right"))
 	self.view:addChild(Text.new("by Pilo", 0, 170, 320, "left"))
+
+	if false then
+		local dw, dh = love.window.getDesktopDimensions()
+		self.view:addChild(Text.new(dw .. "x" .. dw, 0, 150, 320, "left"))		
+	end
 
 	self.fsm = FSM.new(mainMenuState)
 end
