@@ -357,7 +357,7 @@ end
 function TetrominoGrid:moveDown()
 	local dist = self:canMoveDown(self.tetromino)
 
-	if dist > 0 then
+	if dist and dist > 0 then
 		self.tetromino:animateToGrid(self.tetromino.gridX, self.tetromino.gridY + dist, 1024)
 		self.fall = true
 

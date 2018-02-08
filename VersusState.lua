@@ -5,27 +5,50 @@ function VersusState:enter()
 	self.view = Entity.new(0, 0)
 	game.scene:addChild(self.view)
 
-	-- player 1
-	self.player1Gridbezel = Sprite.new(game.bezelImage, nil, 27, 7)
-	self.view:addChild(self.player1Gridbezel)
-	self.player1Grid = TetrominoGrid.new(3, 3)
-	self.player1Gridbezel:addChild(self.player1Grid)
+	-- crate player 1 and 2 tables
+	self.players = {}
+	for i = 1, 2 do
+		self.players[i] = {}
+		self.players[i].rng = love.math.newRandomGenerator(8)
 
-	self.nextPlayer1Tetromino = TetrominoEntity.new(0, 20, 0, 0)
-	self.view:addChild(self.nextPlayer1Tetromino)
+		if i == 1 then
+			self.players[i].control = PlayerControl.player1Control
+		else
+			self.players[i].control = PlayerControl.player2Control
+		end
 
-	self.player2Gridbezel = Sprite.new(game.bezelImage, nil, 207, 7)
-	self.view:addChild(self.player2Gridbezel)
-	self.player2Grid = TetrominoGrid.new(3, 3)
-	self.player2Gridbezel:addChild(self.player2Grid)
+		self.players[i].gridBezel = Sprite.new(game.bezelImage, nil, 27, 7)
+		self.view:addChild(self.players[i].gridBezel)
 
-	self.nextPlayer2Tetromino = TetrominoEntity.new(0, 20, 0, 0)
-	self.view:addChild(self.nextPlayer2Tetromino)
+		self.players[i].grid = TetrominoGrid.new(3, 3)
+		self.players[i].gridBezel:addChild(self.players[i].grid)
 
+		self.players[i].nextTetromino = TetrominoEntity.new(0, 20, 0, 0)
+		self.view:addChild(self.players[i].nextTetromino)
 
+		self.players[i].nextTetromino.index = self.players[i].rng:random(0, 6)
+		self:generateNextTetromino(i)
 
-	self:generatePlayer1Tetromino(love.math.random(7) - 1)
-	self:generatePlayer2Tetromino(love.math.random(7) - 1)
+		-- score
+		self.players[i].scoreLabel = Text.new("0", 120, 10, 64, "right")
+		self.view:addChild(self.players[i].scoreLabel)
+		self.players[i].lineLabel = Text.new("0", 120, 30, 64, "right")
+		self.view:addChild(self.players[i].lineLabel)
+		self.players[i].levelLabel = Text.new("0", 120, 50, 64, "right")
+		self.view:addChild(self.players[i].levelLabel)
+	end
+
+	self.players[1].gridBezel:moveTo(17, 7)
+	self.players[1].nextTetromino:moveTo(120, 10)
+	self.players[2].gridBezel:moveTo(217, 7)
+	self.players[2].nextTetromino:moveTo(170, 10)
+
+	self.view:addChild(Text.new("TIME", 140, 4, 40, "center"))
+	self.timerLabel = Text.new("45", 140, 10, 40, "center", bigFont)
+	self.timerLabel.color = {r = 255, g = 198, b = 0, a = 255}
+	self.view:addChild(self.timerLabel)
+
+	self.gameTime = 60
 
 	--self.fsm = FSM(ThreadState.new(gameReadyThread))
 end
@@ -33,163 +56,98 @@ end
 function VersusState:exit()
 	-- clean game scene
 	game.scene:removeChild(self.view)
+	self.view = nil
 end
+
+-- generate a next tetromino and 
+function VersusState:generateNextTetromino(idx) 
+	-- copye next tetromino idx to current
+	self.players[idx].grid.tetromino.index = self.players[idx].nextTetromino.index
+	self.players[idx].grid.tetromino.orientation = 0
+	self.players[idx].grid.tetromino:moveToGrid(3, 0)
+
+	-- generate next one
+	self.players[idx].nextTetromino.index = self.players[idx].rng:random(0, 6)
+end
+
 
 function VersusState:update(dt)
 	--self.fsm:update(dt)
 
-	if not VersusState.player1Grid.fall then
-		-- rotate 
-		if PlayerControl.player1Control:testTrigger("use") and VersusState.player1Grid:rotate() then
-			game.rotateSound:stop()
-			game.rotateSound:play()
-		end
+	for i = 1,2 do
+		local player = VersusState.players[i]
 
-		if PlayerControl.player1Control:testTrigger("left") and VersusState.player1Grid:moveLeft() then
-			game.moveSound:stop()		
-			game.moveSound:play()
-		end
-
-		if PlayerControl.player1Control:testTrigger("right") and VersusState.player1Grid:moveRight() then
-			game.moveSound:stop()		
-			game.moveSound:play()
-		end
-
-		if PlayerControl.player1Control:testTrigger("attack") and VersusState.player1Grid:moveDown() then
-			game.fallSound:stop()
-			game.fallSound:play()
-		end
-	end
-
-	local bottom, lineCount = VersusState.player1Grid:updateTetromino(dt) 
-	if bottom then
-		if lineCount > 0 then
-			-- update score
-			local points = 40
-			if lineCount == 2 then
-				points = 100
-			elseif lineCount == 3 then
-				points = 300
-			elseif lineCount == 4 then
-				points = 1200
+		if not player.grid.fall then
+			-- rotate 
+			if player.control:testTrigger("use") and player.grid:rotate() then
+				game.rotateSound:stop()
+				game.rotateSound:play()
 			end
-			VersusState.player1Grid.score = VersusState.player1Grid.score + points * (VersusState.player1Grid.level + 1)
 
-			-- update level
-			local levelUp = false
-			local newLevel = math.min(math.max(math.floor(VersusState.player1Grid.lineCount / 20), VersusState.player1Grid.level), 10)
+			if player.control:testTrigger("left") and player.grid:moveLeft() then
+				game.moveSound:stop()		
+				game.moveSound:play()
+			end
 
-			if VersusState.player1Grid.level < newLevel then
-				VersusState.player1Grid.fallTime = levelsFallTime[newLevel]
-				VersusState.player1Grid.level = newLevel
-				game.levelUpSound:rewind()
-				game.levelUpSound:play()
-			else 
-				game.lineSound:rewind()
-				game.lineSound:play()
+			if player.control:testTrigger("right") and player.grid:moveRight() then
+				game.moveSound:stop()		
+				game.moveSound:play()
+			end
+
+			if player.control:testTrigger("attack") and player.grid:moveDown() then
+				game.fallSound:stop()
+				game.fallSound:play()
 			end
 		end
 
-		-- update score, line, etc
-		--gameState.scoreText.text = gameState.gridEntity.score
-		--gameState.linesText.text = gameState.gridEntity.lineCount
-		--gameState.levelText.text = "Level " .. gameState.gridEntity.level
+		local bottom, lineCount = player.grid:updateTetromino(dt) 
+		if bottom then
+			if lineCount > 0 then
+				-- update score
+				local points = 40
+				if lineCount == 2 then
+					points = 100
+				elseif lineCount == 3 then
+					points = 300
+				elseif lineCount == 4 then
+					points = 1200
+				end
+				player.grid.score = player.grid.score + points * (player.grid.level + 1)
 
-		-- generate a new tetromino
-		VersusState:generatePlayer1Tetromino(VersusState.nextPlayer1Tetromino.index)
+				-- update level
+				local levelUp = false
+				local newLevel = math.min(math.max(math.floor(player.grid.lineCount / 20), player.grid.level), 10)
 
-		-- are we stuck?
-		if not VersusState.player1Grid:canMoveDown(VersusState.player1Grid.tetromino) then
-			-- Game over!
-			--gameState.fsm:changeState(ThreadState.new(gameOverThread))
-		end
-	end
-
-	if not VersusState.player2Grid.fall then
-		-- rotate 
-		if PlayerControl.player2Control:testTrigger("use") and VersusState.player2Grid:rotate() then
-			game.rotateSound:stop()
-			game.rotateSound:play()
-		end
-
-		if PlayerControl.player2Control:testTrigger("left") and VersusState.player2Grid:moveLeft() then
-			game.moveSound:stop()		
-			game.moveSound:play()
-		end
-
-		if PlayerControl.player2Control:testTrigger("right") and VersusState.player2Grid:moveRight() then
-			game.moveSound:stop()		
-			game.moveSound:play()
-		end
-
-		if PlayerControl.player2Control:testTrigger("attack") and VersusState.player2Grid:moveDown() then
-			game.fallSound:stop()
-			game.fallSound:play()
-		end
-	end
-
-	local bottom, lineCount = VersusState.player2Grid:updateTetromino(dt) 
-	if bottom then
-		if lineCount > 0 then
-			-- update score
-			local points = 40
-			if lineCount == 2 then
-				points = 100
-			elseif lineCount == 3 then
-				points = 300
-			elseif lineCount == 4 then
-				points = 1200
+				if player.grid.level < newLevel then
+					player.grid.fallTime = levelsFallTime[newLevel]
+					player.grid.level = newLevel
+					game.levelUpSound:rewind()
+					game.levelUpSound:play()
+				else 
+					game.lineSound:rewind()
+					game.lineSound:play()
+				end
 			end
-			VersusState.player2Grid.score = VersusState.player2Grid.score + points * (VersusState.player2Grid.level + 1)
 
-			-- update level
-			local levelUp = false
-			local newLevel = math.min(math.max(math.floor(VersusState.player2Grid.lineCount / 20), VersusState.player2Grid.level), 10)
+			-- update score, line, etc
+			player.scoreLabel.text = player.grid.score
+			player.lineLabel.text = player.grid.lineCount
+			player.levelLabel.text = "Level " .. player.grid.level
 
-			if VersusState.player2Grid.level < newLevel then
-				VersusState.player2Grid.fallTime = levelsFallTime[newLevel]
-				VersusState.player2Grid.level = newLevel
-				game.levelUpSound:rewind()
-				game.levelUpSound:play()
-			else 
-				game.lineSound:rewind()
-				game.lineSound:play()
+			-- generate a new tetromino
+			VersusState:generateNextTetromino(i)
+
+			-- are we stuck?
+			if not player.grid:canMoveDown(player.grid.tetromino) then
+				-- Game over!
+				--gameState.fsm:changeState(ThreadState.new(gameOverThread))
 			end
 		end
-
-		-- update score, line, etc
-		--gameState.scoreText.text = gameState.gridEntity.score
-		--gameState.linesText.text = gameState.gridEntity.lineCount
-		--gameState.levelText.text = "Level " .. gameState.gridEntity.level
-
-		-- generate a new tetromino
-		VersusState:generatePlayer2Tetromino(VersusState.nextPlayer2Tetromino.index)
-
-		-- are we stuck?
-		if not VersusState.player2Grid:canMoveDown(VersusState.player2Grid.tetromino) then
-			-- Game over!
-			--gameState.fsm:changeState(ThreadState.new(gameOverThread))
-		end
 	end
-end
 
--- generate a next tetromino and 
-function VersusState:generatePlayer1Tetromino(idx) 
-	self.player1Grid.tetromino.index = idx
-	self.player1Grid.tetromino.orientation = 0
-	self.player1Grid.tetromino:moveToGrid(3, 0)
-
-	-- next one
-	self.nextPlayer1Tetromino.index = love.math.random(7) - 1
-end
-
-function VersusState:generatePlayer2Tetromino(idx) 
-	self.player2Grid.tetromino.index = idx
-	self.player2Grid.tetromino.orientation = 0
-	self.player2Grid.tetromino:moveToGrid(3, 0)
-
-	-- next one
-	self.nextPlayer2Tetromino.index = love.math.random(7) - 1
+	-- timer
+	VersusState.gameTime = VersusState.gameTime - dt
+	VersusState.timerLabel.text = math.floor(VersusState.gameTime)
 end
 
 return VersusState

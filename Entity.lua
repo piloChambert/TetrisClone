@@ -158,13 +158,15 @@ function Button:draw(parentX, parentY)
 end
 
 Text = {}
-function Text.new(text, x, y, width, align)
+function Text.new(text, x, y, width, align, font)
 	local self = Entity.new(x, y)
 
 	self.text = text
 	self.draw = Text.draw
 	self.width = width
 	self.align = align 
+
+	self.font = font
 
 	return self
 end
@@ -173,16 +175,18 @@ function Text:draw(parentX, parentY)
 	local _x = self.x + parentX
 	local _y = self.y + parentY
 
-	love.graphics.setFont(gameFont)
-
-	love.graphics.setColor(0, 0, 0, 255)
-	if self.width and self.align then
-		love.graphics.printf(self.text, _x + 1, _y + 1, self.width, self.align)	
+	if not self.font then
+		love.graphics.setFont(gameFont)
 	else
-		love.graphics.print(self.text, _x + 1, _y + 1)
+		love.graphics.setFont(self.font)
 	end
 
-	love.graphics.setColor(255, 255, 255, 255)
+	if self.color then
+		love.graphics.setColor(self.color.r, self.color.g, self.color.b, self.color.a)
+	else
+		love.graphics.setColor(255, 255, 255, 255)
+	end
+
 	if self.width and self.align then
 		love.graphics.printf(self.text, _x, _y, self.width, self.align)	
 	else
@@ -220,3 +224,7 @@ end
 
 gameFont = love.graphics.newImageFont("Gfx/font.png"," !\"#$%&`()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_'abcdefghijklmnopqrstuvwxyz{|}~µ", 1)
 gameFont:setFilter("nearest", "nearest")
+
+bigFont = love.graphics.newImageFont("Gfx/BigFont.png"," !\"#$%&`()*+,-./0123456789:;<=>?ABCDEFGHIJKLMNOPQRSTUVWXYZ@[\\]^_~", 0)
+bigFont:setFilter("nearest", "nearest")
+
