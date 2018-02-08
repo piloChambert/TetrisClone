@@ -466,7 +466,8 @@ function game:load()
 		end
 	end
 
-	self.fsm = FSM.new(menuState)
+	--self.fsm = FSM.new(menuState)
+	self.fsm = FSM.new(VersusState)
 end
 
 -- fade the screen in the next frames
