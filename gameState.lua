@@ -50,10 +50,10 @@ function gameStatePlay:update(dt)
 			if gameState.gridEntity.level < newLevel then
 				gameState.gridEntity.fallTime = levelsFallTime[newLevel]
 				gameState.gridEntity.level = newLevel
-				game.levelUpSound:rewind()
+				--game.levelUpSound:rewind()
 				game.levelUpSound:play()
 			else 
-				game.lineSound:rewind()
+				--game.lineSound:rewind()
 				game.lineSound:play()
 			end
 		end
